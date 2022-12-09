@@ -1,4 +1,4 @@
-# pySpade: Single cell Perturbation Analysis of Differential Expression
+# pySpade: Single cell Perturbations - Analysis of Differential gene Expression
 
 ## Overview
 _________
