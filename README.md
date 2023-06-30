@@ -1,15 +1,18 @@
 # pySpade: Single cell Perturbations - Analysis of Differential gene Expression
 
 ## Overview
+_________
 `pySpade` is a user friendly tool to perform the whole transcriptome analysis of single cell perturbation dataset. With the direct output of Cellranger, `pySpade` utilizes hypergeomtric test to analyze the whole transcriptome differential expression and generates hits table csv file. User can use the table to do downstream processing like generating Manhattan plots (tutorial includes). Currently we support human genome.     
 
 ## Requirement
+_________
 * Python (3.7 +)
 * Numpy (1.21 +)
 * Pandas (1.3.5 +)
 * Scipy (1.6.2 +)
 
 ## Installation
+________
 `pySpade` can be installed with `pip`
 
 ```shell
@@ -17,25 +20,26 @@ pip install pySpade
 ```
 
 ## Usage
+________
 ```
 $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.0.1
+Version: 0.0.2
 
 optional arguments:
   -h, --help  show this help message and exit
 
 functions:
   
-    process   process mapping output and reformat to downstream analysis.
+    process   process mapping output and reformat for downstream analysis.
     explevel  check the average expression level of query genes in single cell matrix
     fc        check the fold change of sgrna
-    DEobs     perform differential expression analysis of observe cells
+    DEobs     perform differential expression analysis of observed cells
     DErand    perform differential expression analysis of random selection background
-    local     perform local hit analysis with obs and random background
-    global    perform global hit analysis with obs and random background
+    local     perform local hit analysis with observation data and random background
+    global    perform global hit analysis with observation data and random background
     
 ```
 
@@ -54,5 +58,6 @@ functions:
 * `global` : Using the observation p value and randomization background p value to calculate the adjusted p value based on Gaussian distribution approximation. The output is a csv file with all hits information. Cutoff for p value is -1 (ln), fold change is 10%. Users can apply more stringent cutoff for their own purpose. 
 
 ## Contributors
+_______
 * First Author: Yihan Wang `Yihan.Wang@UTSouthwestern.edu`
 * Corresponding Author: Gary Hon `Gary.Hon@UTSouthwestern.edu`
