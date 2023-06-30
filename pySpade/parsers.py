@@ -39,7 +39,7 @@ def parse_args(args=sys.argv[1:]):
 def add_process_subparser(subparsers):
     parser = subparsers.add_parser(
         'process',
-        help='process mapping output and reformat to downstream analysis.',
+        help='process mapping output and reformat for downstream analysis.',
         description=(
             'Process transcriptome output and sgrna output to remove experimental doublets. '
             'Transcriptome matrix is from Cellranger output (outs folder),'
@@ -93,11 +93,11 @@ def add_explevel_subparser(subparsers):
             'query genes list has to be txt file, genes are seperated with new line.'))
 
     parser.add_argument('-t', 
-                        '--transcriptome_df', 
-                        dest='transcriptome_df', 
+                        '--transcriptome_dir', 
+                        dest='transcriptome_dir', 
                         required=True,
                         type=str,
-                        help='specify the processed transcriptome file')
+                        help='specify the directory from process function.')
 
     parser.add_argument('-g', 
                         '--gene',
@@ -109,7 +109,7 @@ def add_explevel_subparser(subparsers):
     parser.add_argument('-o', 
                         '--output_file', 
                         dest='output_file', 
-                        required=True,
+                        required=False,
                         help='specify output file.')
 
 #fc
@@ -124,19 +124,12 @@ def add_fc_subparser(subparsers):
             'Region and sgrnas separated by tab, and sgrnas separated by comma'))
 
     parser.add_argument('-t', 
-                        '--transcriptome_df', 
-                        dest='transcriptome_df', 
+                        '--transcriptome_dir', 
+                        dest='transcriptome_dir', 
                         required=True,
                         type=str,
                         help='specify the processed transcriptome matrix file')
 
-    parser.add_argument('-s', 
-                        '--sgrna', 
-                        dest='input_sgrna', 
-                        required=True,
-                        type=str,
-                        help='specify the processed sgrna matrix file.')
-    
     parser.add_argument('-d', 
                         '-dict', 
                         dest='dict', 
@@ -152,10 +145,10 @@ def add_fc_subparser(subparsers):
                         help='specify the query regions and their target genes to calculate repression efficiency.')
 
     parser.add_argument('-o', 
-                        '--output_file', 
-                        dest='output_file', 
+                        '--output_folder', 
+                        dest='output_folder', 
                         required=True,
-                        help='specify output file.')
+                        help='specify output folder directory.')
 
 #DEobs
 def add_DEobs_subparser(subparsers):
@@ -286,12 +279,19 @@ def add_DErand_subparser(subparsers):
 def add_local_subparser(subparsers):
     parser = subparsers.add_parser(
         'local',
-        help='perform local hit analysis (+-2Mb) with obs and random background',
+        help='perform local hit analysis (+-2Mb) with observation data and random background',
         description=('Using the observation p value and randomization bavckground p value'
                      'to calculate the adjusted p value based on Gaussian distribution approximation'
                      'Local hits calculation includes the genes within plus and minus 2 Mb of the perturbation region.'
                      'The output is a csv file with all hits information.'))
-
+   
+    parser.add_argument('-f', 
+                        '--file_dir', 
+                        dest='file_dir', 
+                        required=True,
+                        type=str,
+                        help='specify the file directory of "process" function output, the Trans_genome_seq.npy file is required at this step.')
+   
     parser.add_argument('-d', 
                         '--data_dir', 
                         dest='data_dir', 
@@ -305,6 +305,13 @@ def add_local_subparser(subparsers):
                         required=True,
                         type=str,
                         help='specify the random cell mean/std/10_perc file directory.')
+    
+    parser.add_argument('-s', 
+                        '-sgrna_dict', 
+                        dest='sgrna_dict', 
+                        required=True,
+                        type=str, 
+                        help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
 
     parser.add_argument('-o', 
                         '--output_file', 
@@ -317,12 +324,19 @@ def add_local_subparser(subparsers):
 def add_global_subparser(subparsers):
     parser = subparsers.add_parser(
         'global',
-        help='perform global hit analysis with obs and random background',
+        help='perform global hit analysis with observation data and random background',
         description=('Using the observation p value and randomization bavckground p value'
                      'to calculate the adjusted p value based on Gaussian distribution approximation'
                      'The output is a csv file with all hits information.'
                      'cutoff for p value is -1 (ln), fold change is 10%'))
-
+    
+    parser.add_argument('-f', 
+                        '--file_dir', 
+                        dest='file_dir', 
+                        required=True,
+                        type=str,
+                        help='specify the file directory of "process" function output, the Trans_genome_seq.npy file is required at this step.')
+    
     parser.add_argument('-d', 
                         '--data_dir', 
                         dest='data_dir', 

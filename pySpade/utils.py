@@ -14,6 +14,7 @@ from scipy.sparse import csr_matrix
 import glob
 import re
 import tables
+import matplotlib.pyplot as plt
 
 def get_logger(logger_name, log_file=False):
     """Creates a custom logger."""
@@ -163,6 +164,24 @@ def metacelll_normalization(trans_df):
             cell_cpm = trans_df.iloc[:,i] / np.sum(trans_df.iloc[:,i].values) * 1e6
             cpm_matrix[:,i] = cell_cpm / one_cell_cpm  
 
+def set_axis_style(ax, labels):
+    ax.xaxis.set_tick_params(direction='out')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.set_xticks(np.arange(1, len(labels) + 1))
+    ax.set_xticklabels(labels, fontsize=14, color='#000000')
+    ax.set_xlim(0.25, len(labels) + 0.75)
+
+def sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene, region, output_file):
+    fig, ax = plt.subplots(figsize= (8,6))
+    ax.set_title(target_gene + ' expression in ' + region, fontsize=20)
+    flierprops = dict(marker='o', markerfacecolor='#000000', markersize=6, alpha=0.5,
+                    linestyle='none')
+    ax.boxplot([sgrna_cells_expression, other_cells_expression], whis=[10, 90],
+            showfliers=True, flierprops=flierprops)
+    labels = ['sgRNA cells', 'other cells']
+    set_axis_style(ax, labels)
+    plt.savefig(output_file)
+
 def hypergeo_test(non_zero_array, sgrna_idx, i):
     #find indecies of cells in which expression of given gene is
     #equal or less than the median of this gene in the whole population
@@ -225,17 +244,16 @@ def load_data(data_dir, region):
     if len(fc_files) == 1:
         fc_file = fc_files[0]
     else:
-        
-        numbers = np.array([int(float(i.split('/')[-1].split('-')[2])) for i in fc_files])
+        numbers = np.array([int(float(i.split('/')[-1].split('-')[-2])) for i in fc_files])
         chosen_num = np.max(numbers)
-        fc_file = data_dir + region + '-' + str(chosen_num) + '*-foldchange'
+        fc_file = data_dir + region + '-' + str(chosen_num) + '-foldchange'
     
     pval_list_up = io.loadmat(up_pval_file)['matrix'][0]
     pval_list_down = io.loadmat(down_pval_file)['matrix'][0]
     cpm = io.loadmat(cpm_file)['matrix'][0]
     fc = io.loadmat(fc_file)['matrix'][0]
     
-    num_sgrna_cell = int(fc_file.split('/')[-1].split('-')[2])
+    num_sgrna_cell = int(fc_file.split('/')[-1].split('-')[-2])
     return pval_list_up, pval_list_down, cpm, fc, num_sgrna_cell
 
 def get_neighbor_genes(region, query_range, annot_df):
@@ -256,12 +274,12 @@ def get_neighbor_genes(region, query_range, annot_df):
 
     enh_chrom, left, right = re.split('[:|-]', region)
     position = int(left) + length_list[chr_order.index(enh_chrom)]
-    gene_idx = annot_df.loc[(annot_df.pos < position + query_range) \
+    gene = annot_df.loc[(annot_df.pos < position + query_range) \
                             & (annot_df.pos > position - query_range)\
-                            & (annot_df.chromosome == enh_chrom)].index.values
-    return(gene_idx)
+                            & (annot_df.chromosome == enh_chrom)].gene_names.values
+    return(gene)
 
-def get_distance(region, gene_pos, annot_df):
+def get_distance(region, gene_pos):
     length_list = [
         0, 248956422,491149951,689445510,879660065,1061198324,               
         1232004303,1391350276,1536488912,1674883629,1808681051,

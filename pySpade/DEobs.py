@@ -43,15 +43,8 @@ def DE_observe_cells(sub_df_file,
     elif (sub_df_file.endswith('h5')):
         sub_df = pd.read_hdf(sub_df_file, 'df')
        
-    #read the plotting annotation
-    annot_df = read_annot_df()
-    
-    #filter out the genes do not expressed in any of the cells 
-    nonzero_idx = np.where(np.sum(sub_df > 0, axis=1) > 1)[0]
-    idx = list(set(nonzero_idx) & set(annot_df.idx))
-    del nonzero_idx
-    del annot_df
-        
+    idx = np.arange(0, len(sub_df.index))
+
     #normalize the matrix.       
     if (norm == 'cpm'):
         cpm_matrix = cpm_normalization(sub_df)
@@ -61,9 +54,6 @@ def DE_observe_cells(sub_df_file,
      
     logger.info('Finished transcriptome normalization.')
     
-    #create input ndarray
-    input_array = cpm_matrix[idx]
-    del cpm_matrix
 
     #load the sgRNA file
     logger.info('Loading sgRNA df.')
@@ -81,6 +71,23 @@ def DE_observe_cells(sub_df_file,
 
     logger.info('Start DE analysis.')
     for k in sgrna_dict:
+        logger.info(f'Start analysis of region: {k}')
+
+        #Find if any sgRNA is missing from the sgRNA df
+        missing_sgrna_list = list(set(sgrna_dict[k]) - set(sgrna_df_adj_bool.index))
+        if len(missing_sgrna_list) == len(sgrna_dict[k]):
+            logger.info('Missing all the sgRNA in this region.')
+            continue
+        if len(missing_sgrna_list) > 0:
+            logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna.')
+            for i in missing_sgrna_list:
+                logger.info('Missing sgrna: ' + str(i))
+
+        #remove the missing sgrna and continue DE analysis 
+        if len(missing_sgrna_list) > 0:
+            remain_sgrna_list = list(set(sgrna_dict[k]) - (set(missing_sgrna_list)))
+            sgrna_dict.update({k:remain_sgrna_list})
+
         #idx index of cells containing the given sgRNA
         sgrna_idx = find_all_sgrna_cells(sgrna_df_adj_bool, sgrna_dict[k])
 
@@ -94,7 +101,7 @@ def DE_observe_cells(sub_df_file,
         #perform the differential gene analysis
         num_sgrna_cell, pval_list_up, pval_list_down, fc_list, cpm_list = perform_DE(
             sgrna_idx,
-            input_array,
+            cpm_matrix,
             idx,
             num_processing,
             pval_list_down,
@@ -119,7 +126,7 @@ def DE_observe_cells(sub_df_file,
             '%s/%s-cpm'%(output_dir, k[0:]),
             {'matrix':cpm_list})
 
-        logger.info(f'Finish analysis of region: {k}')
+        
 
 if __name__ == '__main__':
     pass

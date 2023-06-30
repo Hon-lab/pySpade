@@ -37,7 +37,7 @@ def main():
         m = importlib.import_module(name=f'pySpade.{args.command}')
 
         _ = m.Calculate_gene_expression(
-            TRANSCRIPTOME_DF=args.transcriptome_df,
+            TRANSCRIPTOME_DIR=args.transcriptome_dir,
             GENE_FILE=args.gene,
             OUTPUT_FILE=args.output_file
         )
@@ -49,11 +49,10 @@ def main():
         m = importlib.import_module(name=f'pySpade.{args.command}')
 
         _ = m.Calculate_fc(
-            TRANSCRIPTOME_DF=args.transcriptome_df,
-            SGRNA = args.input_sgrna,
+            TRANSCRIPTOME_DIR=args.transcriptome_dir,
             SGRNA_DICT = args.dict,
             TARGET_FILE = args.region,
-            OUTPUT_FILE = args.output_file
+            OUTPUT_FOLDER = args.output_folder
         )        
         logger.info('Done.')
 
@@ -93,8 +92,10 @@ def main():
         m = importlib.import_module(name=f'pySpade.{args.command}')
 
         _ = m.local_analysis(
-            data_dir = args.data_dir,
+            FILE_DIR = args.file_dir,
+            OBS_DIR = args.data_dir,
             DISTRI_DIR = args.distr,
+            SGRNA_DICT = args.sgrna_dict,
             OUTPUT_DF = args.output_file
             )        
         logger.info('Done.')
@@ -104,7 +105,8 @@ def main():
         m = importlib.import_module(name=f'pySpade.{args.command}')
 
         _ = m.global_analysis(
-            data_dir = args.data_dir,
+            FILE_DIR = args.file_dir,
+            OBS_DIR = args.data_dir,
             SGRNA_DICT = args.sgrna_dict,
             DISTRI_DIR = args.distr,
             OUTPUT_DF = args.output_file

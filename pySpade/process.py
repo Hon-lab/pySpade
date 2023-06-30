@@ -127,6 +127,7 @@ def process_singlet(WORK_DIR,
 
     #write output matrix
     sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
+    np.save(OUTPUT_DIR + 'Trans_genome_seq', sub_df.index)
     if (COMP=='True'):
         no_outlier_sgrna_df.to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=9, complib='zlib')    
         sub_df[no_outlier_sgrna_df.columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w', complevel=9, complib='zlib')

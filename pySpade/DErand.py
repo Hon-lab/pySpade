@@ -53,13 +53,8 @@ def DE_random_cells(sub_df_file,
     
     #read the plotting annotation
     annot_df = read_annot_df()
-    
-    #filter the genes
-    nonzero_idx = np.where(np.sum(sub_df > 0, axis = 1) > 1)[0]
-    idx = list(set(nonzero_idx) & set(annot_df.idx))
-    del nonzero_idx
-    del annot_df
-        
+    idx = np.arange(0, len(sub_df.index))
+  
     #normalize the matrix.
     if (norm == 'cpm'):
         cpm_matrix = cpm_normalization(sub_df)
@@ -69,9 +64,6 @@ def DE_random_cells(sub_df_file,
      
     logger.info('Finished transcriptome normalization.')
     
-    #create input ndarray
-    input_array = cpm_matrix[idx]
-    del cpm_matrix
 
     if (sgrna_df.endswith('pkl')):
         sgrna_df_adj_bool = pd.read_pickle(sgrna_df) > 0 
@@ -115,7 +107,7 @@ def DE_random_cells(sub_df_file,
         #perform the differential gene analysis by using Virtual FACS
         num_sgrna_cell, pval_list_up, pval_list_down, fc_list, cpm_list = perform_DE(
                                                                             sgrna_idx,
-                                                                            input_array,
+                                                                            cpm_matrix,
                                                                             idx,
                                                                             num_processing,
                                                                             pval_list_down,

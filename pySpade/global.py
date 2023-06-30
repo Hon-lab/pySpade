@@ -30,15 +30,21 @@ from pySpade.utils import get_logger, read_annot_df, read_sgrna_dict, load_data
 
 logger = get_logger(logger_name=__name__)
 
-def global_analysis(data_dir,
+def global_analysis(FILE_DIR,
+                    OBS_DIR,
                     SGRNA_DICT,
                     DISTRI_DIR,
                     OUTPUT_DF):
     
     logger.info('Loading files.')
-
+    #read the gene sequence file 
+    gene_seq = np.load(FILE_DIR + 'Trans_genome_seq.npy', allow_pickle=True)
+    if len(gene_seq) != len(set(gene_seq)):
+        logger.critical('Duplication of mapping genes.')
     #read the plotting annotation
-    annot_df = read_annot_df()
+    annot_df_dup = read_annot_df()
+    #There are many non-coding genes duplication in the annot_df, only keep one.
+    annot_df = annot_df_dup.drop_duplicates(subset='gene_names', keep='first')
 
     ##Load sgRNA dict: All regions 
     sgrna_dict  = read_sgrna_dict(SGRNA_DICT)
@@ -58,22 +64,22 @@ def global_analysis(data_dir,
         'idx', 'gene_names', 'chromosome', 'pos', 'strand', 
         'color_idx', 'chr_idx', 
         'region', 'num_cell', 'bin',
-        'pval', 'fc', 'padj-Gaussian', 'fc_by_rand_dist_cpm']
+        'pval', 'fc', 'padj-Gaussian', 'fc_by_rand_dist_cpm', 'cpm_perturb', 'cpm_bg']
     global_hits_df = pd.DataFrame(columns=df_column_list)
 
     #Generate bin-region dictionary 
     bin_dict = defaultdict(list)
     for region in list(sgrna_dict.keys()):
-        fc_files = glob.glob(data_dir + region + '*-foldchange')
+        fc_files = glob.glob(OBS_DIR + region + '*-foldchange')
+        if len(fc_files) == 0:
+            logger.critical('Cannot find foldchange file: ' + str(region))
+            continue
         fc_file = fc_files[0]
-        cell_num = int(fc_file.split('/')[-1].split('-')[2])
+        cell_num = int(fc_file.split('/')[-1].split('-')[-2])
         chosen_bin = Num[np.argmin([np.absolute(n-cell_num) for n in Num])]
         bin_dict[chosen_bin].append(region)
     logger.info('Finish generating bin-region dictionary')
     
-    pval_cutoff = -1
-    fc_cutoff = 0.1
-
     for b in Num:
         logger.info(f'Processing bin: {b}')
         logger.info(f'Num of regions in this bin: {len(bin_dict[b])}')
@@ -86,7 +92,7 @@ def global_analysis(data_dir,
         cpm_mean = np.load(DISTRI_DIR + 'Cpm_mean-%s.npy'%(str(b)))
 
         for region in bin_dict[b]:
-            pval_list_up, pval_list_down, cpm, fc, cell_num = load_data(data_dir, region)
+            pval_list_up, pval_list_down, cpm, fc, cell_num = load_data(OBS_DIR, region)
             fc_cpm = (cpm + 0.01)/(cpm_mean + 0.01)
 
             #preprocess pval list 
@@ -98,42 +104,59 @@ def global_analysis(data_dir,
             pval_list_down[np.isnan(pval_list_down)] = 0
 
             #split up-regulation and down-regulation
+            pval_cutoff = 0
+            fc_cutoff = 0
             up_i = np.where(np.array(fc_cpm) > (1 + fc_cutoff))[0]
             up_idx = np.array(list(set(up_i).intersection(set(np.where(pval_list_up < pval_cutoff)[0]))))
 
             down_i = np.where(np.array(fc_cpm) < (1 - fc_cutoff))[0]
             down_idx = np.array(list(set(down_i).intersection(set(np.where(pval_list_down < pval_cutoff)[0]))))
+            #Calculate the overlap genes with annot_df, and only save the information on those genes.
+            unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
+
+            up_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))) #up-regulated genes found in both annotation file and transcriptome df
+            up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
+            down_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[down_idx])))
+            down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
 
             #Calculate p-value adj for Gaussian method 
-            down_zscore_list = (pval_list_down[down_idx] - down_mean[down_idx]) / down_std[down_idx]
+            down_zscore_list = (pval_list_down[down_keep_genes_idx] - down_mean[down_keep_genes_idx]) / down_std[down_keep_genes_idx]
             down_padj_list = scipy.stats.norm.logsf(abs(down_zscore_list))
-            down_hit_fc_list = fc_cpm[down_idx]
+            down_hit_fc_list = fc_cpm[down_keep_genes_idx]
+            down_cpm = cpm[down_keep_genes_idx]
+            down_cpm_bg = cpm_mean[down_keep_genes_idx]
 
-            up_zscore_list = (pval_list_up[up_idx] - up_mean[up_idx]) / up_std[up_idx]
+            up_zscore_list = (pval_list_up[up_keep_genes_idx] - up_mean[up_keep_genes_idx]) / up_std[up_keep_genes_idx]
             up_padj_list = scipy.stats.norm.logsf(abs(up_zscore_list))
-            up_hit_fc_list = fc_cpm[up_idx]
+            up_hit_fc_list = fc_cpm[up_keep_genes_idx]
+            up_cpm = cpm[up_keep_genes_idx]
+            up_cpm_bg = cpm_mean[up_keep_genes_idx]
 
             #save to csv file: down-regulation gene 
-            global_gene_series = annot_df.set_index('idx').loc[down_idx, :]
+            global_gene_series = annot_df[annot_df['gene_names'].isin(down_keep_genes)].set_index('idx')
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
-            global_gene_series['pval'] = pval_list_down[down_idx]
-            global_gene_series['fc'] = fc[down_idx]
+            global_gene_series['pval'] = pval_list_down[down_keep_genes_idx]
+            global_gene_series['fc'] = fc[down_keep_genes_idx]
             global_gene_series['padj-Gaussian'] = down_padj_list
             global_gene_series['fc_by_rand_dist_cpm'] = down_hit_fc_list
+            global_gene_series['cpm_perturb'] = down_cpm
+            global_gene_series['cpm_bg'] = down_cpm_bg
             global_gene_series['idx'] = global_gene_series.index
             global_hits_df = global_hits_df.append(global_gene_series)
 
             #save to csv file: up-regulation gene 
-            global_gene_series = annot_df.set_index('idx').loc[up_idx, :]
+            global_gene_series = annot_df[annot_df['gene_names'].isin(up_keep_genes)].set_index('idx')
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
-            global_gene_series['pval'] = pval_list_up[up_idx]
-            global_gene_series['fc'] = fc[up_idx]
+            global_gene_series['pval'] = pval_list_up[up_keep_genes_idx]
+            global_gene_series['fc'] = fc[up_keep_genes_idx]
             global_gene_series['padj-Gaussian'] = up_padj_list
             global_gene_series['fc_by_rand_dist_cpm'] = up_hit_fc_list
+            global_gene_series['cpm_perturb'] = up_cpm
+            global_gene_series['cpm_bg'] = up_cpm_bg
             global_gene_series['idx'] = global_gene_series.index
             global_hits_df = global_hits_df.append(global_gene_series)
             
