@@ -57,7 +57,7 @@ functions:
 
 * `global` : Using the observation p value and randomization background p value to calculate the adjusted p value based on Gaussian distribution approximation. The output is a csv file with all hits information. Cutoff for p value is -1 (ln), fold change is 10%. Users can apply more stringent cutoff for their own purpose. 
 
-## Contributors
+## Contacts
 _______
-* First Author: Yihan Wang `Yihan.Wang@UTSouthwestern.edu`
-* Corresponding Author: Gary Hon `Gary.Hon@UTSouthwestern.edu`
+* Yihan Wang `Yihan.Wang@UTSouthwestern.edu`
+* Gary Hon `Gary.Hon@UTSouthwestern.edu`
