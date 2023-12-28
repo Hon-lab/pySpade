@@ -20,7 +20,7 @@ from scipy import sparse, io
 from scipy.sparse import csr_matrix
 from random import shuffle
 
-from pySpade.utils import get_logger, read_annot_df, cpm_normalization, metacelll_normalization, perform_DE, hypergeo_test
+from pySpade.utils import get_logger, read_annot_df, cpm_normalization, metacelll_normalization, perform_DE, hypergeo_test, get_num_processes
 
 np.random.seed(0)
 logger = get_logger(logger_name=__name__)
@@ -33,6 +33,8 @@ def DE_random_cells(sub_df_file,
                     iteration=1000,
                     num_processing=1,
                     norm='cpm'):
+    
+    num_processing = get_num_processes()
     
     #check the normalization method
     if (norm != 'cpm') and (norm != 'metacell'):

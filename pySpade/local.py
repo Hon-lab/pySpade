@@ -37,7 +37,10 @@ def local_analysis(FILE_DIR,
     #read the gene sequence file 
     gene_seq = np.load(FILE_DIR + 'Trans_genome_seq.npy', allow_pickle=True)
     if len(gene_seq) != len(set(gene_seq)):
-        logger.critical('Duplication of mapping genes.')
+        logger.critical('Duplication of mapping genes. Duplicates are removed in the analysis.')
+        unique_elements, counts = np.unique(gene_seq, return_counts=True)
+        duplicate_elements = unique_elements[counts > 1]
+        
     #read the plotting annotation
     annot_df_dup = read_annot_df()
     #There are many non-coding genes duplication in the annot_df, only keep one.
@@ -52,7 +55,7 @@ def local_analysis(FILE_DIR,
     df_column_list = [
         'gene_names', 'chromosome', 'pos', 'strand', 
         'color_idx', 'chr_idx', 'region', 'distance', 'num_cell', 'bin', 
-        'pval', 'fc', 'padj-Gaussian', 'fc_by_rand_dist_cpm', 'cpm_perturb', 'cpm_bg']
+        'log(pval)-hypergeom', 'fc', 'log(padj)-Gaussian', 'fc_by_rand_dist_cpm', 'pval-empirical', 'cpm_perturb', 'cpm_bg']
     local_gene_df = pd.DataFrame(columns=df_column_list)
 
     #Read the background distribution file
@@ -87,18 +90,27 @@ def local_analysis(FILE_DIR,
         #get the gene idx within local analysis window and filter with fold change 
         local_gene = get_neighbor_genes(region, 2e6, annot_df)
         fc_cutoff = 0.01
+        pval_cutoff = 0
+
+        #read the pval matrix and process
+        pval = sio.loadmat(OBS_DIR + region + '-down_log-pval')['matrix'][0] #raw hypergeom p value
+        pval[np.argwhere(pval == 0)] = 1
+        pval[np.isinf(pval)] = 0
+        pval[np.isnan(pval)] = 0
+
         #Calculate the overlap genes with annot_df, and only save the information on those genes.
-        down_idx = np.where(np.array(fc) < (1 - fc_cutoff))[0]
+        down_i = np.where(np.array(fc) < (1 - fc_cutoff))[0]
+        down_idx = np.array(list(set(down_i).intersection(set(np.where(pval < pval_cutoff)[0]))))
+        ##Remove the duplicate value of gene index, return a list with unique gene names. 
+        ##Unique_elements is sorted by the gene names, unique_indices return the original index from gene_seq.
         unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
         down_keep_genes = list((set(annot_df['gene_names']).intersection(set(gene_seq[down_idx]))).intersection(set(local_gene)))
         down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
+        #Make this true: gene_seq[down_keep_genes_idx] == down_keep_genes
 
         if len(down_keep_genes_idx) ==0:
             logger.info(f'  No down-regulation genes within local analysis windown. ')
             continue
-            
-        #read the pval matrix
-        pval = sio.loadmat(OBS_DIR + region + '-down_log-pval')['matrix'][0] #raw hypergeom p value
         
         #Calculate the adjusted pval with closet cell number distribution
         chosen_dist = Num[np.argmin([np.absolute(n - cell_num) for n in Num])]
@@ -107,7 +119,6 @@ def local_analysis(FILE_DIR,
         down_mean = np.load(DISTRI_DIR + 'Down_dist_mean-%s.npy'%(str(chosen_dist)))
         down_std = np.load(DISTRI_DIR + 'Down_dist_std-%s.npy'%(str(chosen_dist)))
         cpm_mean = np.load(DISTRI_DIR + 'Cpm_mean-%s.npy'%(str(chosen_dist)))
-        
         fc_rand = cpm/cpm_mean
         
         #Calculate adjusted p value of Gaussian padj
@@ -116,8 +127,15 @@ def local_analysis(FILE_DIR,
         hits_fc = fc[down_keep_genes_idx]
         hits_fc_rand = fc_rand[down_keep_genes_idx]
 
-        #save to csv file 
-        local_gene_series = annot_df[annot_df['gene_names'].isin(down_keep_genes)].set_index('idx')
+        #Load pvalue matrix and calculate empirical p-value
+        rand_down_file = sio.loadmat(DISTRI_DIR + '%s-down_log-pval'%(str(chosen_dist)))
+        rand_down_matrix = []
+        rand_down_matrix = sp_sparse.vstack(rand_down_file['matrix'])
+        iter_num, gene_num = rand_down_matrix.shape
+        emp_pval = np.sum(np.asarray(rand_down_matrix.tocsr()[:, down_keep_genes_idx].todense()) < pval[down_keep_genes_idx], axis=0) / iter_num
+
+        #Save to csv file 
+        local_gene_series = annot_df[annot_df['gene_names'].isin(down_keep_genes)].set_index('idx').sort_index()
         local_gene_series['region'] = region
         dist_list = []
         for i in local_gene_series['pos']:
@@ -126,19 +144,20 @@ def local_analysis(FILE_DIR,
         local_gene_series['distance'] = dist_list
         local_gene_series['num_cell'] = cell_num
         local_gene_series['bin'] = chosen_dist
-        local_gene_series['pval'] = pval[down_keep_genes_idx] 
+        local_gene_series['log(pval)-hypergeom'] = pval[down_keep_genes_idx] 
         local_gene_series['fc'] = hits_fc
-        local_gene_series['padj-Gaussian'] = down_padj_list
+        local_gene_series['log(padj)-Gaussian'] = down_padj_list
         local_gene_series['fc_by_rand_dist_cpm'] = hits_fc_rand
+        local_gene_series['pval-empirical'] = emp_pval
         local_gene_series['cpm_perturb'] = cpm[down_keep_genes_idx]
         local_gene_series['cpm_bg'] = cpm_mean[down_keep_genes_idx]
         local_gene_df = local_gene_df.append(local_gene_series)        
         local_gene_df = local_gene_df.reindex(columns=df_column_list)
 
     if OUTPUT_DF.endswith('.csv'):
-        local_gene_df.to_csv(OUTPUT_DF)
+        local_gene_df[~local_gene_df['gene_names'].isin(duplicate_elements)].to_csv(OUTPUT_DF)
     else:
-        local_gene_df.to_csv(OUTPUT_DF + '.csv')
+        local_gene_df[~local_gene_df['gene_names'].isin(duplicate_elements)].to_csv(OUTPUT_DF + '.csv')
 
 if __name__ == '__main__':
     pass

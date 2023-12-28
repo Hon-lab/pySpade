@@ -11,13 +11,14 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import scipy.sparse as sp_sparse
+import multiprocessing 
 from multiprocessing import Pool
 from collections import defaultdict
 from scipy import sparse, io
 from scipy.sparse import csr_matrix
 from random import shuffle
 
-from pySpade.utils import get_logger, read_annot_df, cpm_normalization, metacelll_normalization, read_sgrna_dict, find_all_sgrna_cells, perform_DE, hypergeo_test
+from pySpade.utils import get_logger, read_annot_df, cpm_normalization, metacelll_normalization, read_sgrna_dict, find_all_sgrna_cells, perform_DE, hypergeo_test, get_num_processes
 
 np.random.seed(0)
 logger = get_logger(logger_name=__name__)
@@ -29,6 +30,8 @@ def DE_observe_cells(sub_df_file,
                     num_processing=1,
                     norm='cpm',
                     ):
+    
+    num_processing = get_num_processes()
 
     #check the normalization method   
     if (norm != 'cpm') and (norm != 'metacell'):
@@ -79,7 +82,8 @@ def DE_observe_cells(sub_df_file,
             logger.info('Missing all the sgRNA in this region.')
             continue
         if len(missing_sgrna_list) > 0:
-            logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna.')
+            left_sgrna = len(sgrna_dict[k]) - len(missing_sgrna_list)
+            logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna, ' + str(left_sgrna) + ' left for analysis.')
             for i in missing_sgrna_list:
                 logger.info('Missing sgrna: ' + str(i))
 
@@ -90,7 +94,9 @@ def DE_observe_cells(sub_df_file,
 
         #idx index of cells containing the given sgRNA
         sgrna_idx = find_all_sgrna_cells(sgrna_df_adj_bool, sgrna_dict[k])
-
+        if len(sgrna_idx) == 0:
+            logger.info('No cell in this region.')
+            continue
         #force the up-tail p-vals of all zero expressed genes to be zero. (actual p-val is 1)
         pval_list_down = np.zeros(g)
         pval_list_up = np.zeros(g)
@@ -107,9 +113,8 @@ def DE_observe_cells(sub_df_file,
             pval_list_down,
             pval_list_up,
             fc_list,
-            cpm_list
-        )
-
+            cpm_list)
+        
         #save all the output
         io.savemat(
             '%s/%s-up_log-pval'%(output_dir, k[0:]),
@@ -125,8 +130,6 @@ def DE_observe_cells(sub_df_file,
         io.savemat(
             '%s/%s-cpm'%(output_dir, k[0:]),
             {'matrix':cpm_list})
-
-        
-
+   
 if __name__ == '__main__':
     pass

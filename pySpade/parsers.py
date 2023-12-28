@@ -21,6 +21,7 @@ def parse_args(args=sys.argv[1:]):
     add_explevel_subparser(subparsers)
     add_fc_subparser(subparsers)
     add_DEobs_subparser(subparsers)
+    add_DEobsboot_subparser(subparsers)
     add_DErand_subparser(subparsers)
     add_local_subparser(subparsers)
     add_global_subparser(subparsers)
@@ -59,14 +60,15 @@ def add_process_subparser(subparsers):
                         dest='input_sgrna',
                         required=True,
                         type=str,
-                        help='Specify the sgrna matrix file. Combine together and make sure the barcodes are consistent with transcriptome if thre are multiple libraries. File format: pkl or csv')
+                        help='Specify the sgrna matrix file.'
+                        'Please make sure the barcodes are consistent with transcriptome if thre are multiple libraries. File format: pkl or csv')
 
     parser.add_argument('-m', 
                         '--cell_multiplex',
                         dest='cell_multiplex',
-                        required=True,
+                        required=False,
                         default=False,
-                        help='specify the used antibody name in txt file separate with new line. Make sure that the antibody is mapped together with transcriptome')
+                        help='specify the used antibody name in txt file separate with new line. Make sure that the antibody is mapped together with transcriptome. Cellranger is recommended.')
 
     parser.add_argument('-o', 
                         '--output_directory',
@@ -135,7 +137,7 @@ def add_fc_subparser(subparsers):
                         dest='dict', 
                         required=True,
                         type=str, 
-                        help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
+                        help='specify the sgRNA annotation file: perturbation coordinates (hg38) and the sgRNA name.')
 
     parser.add_argument('-r', 
                         '--region', 
@@ -157,6 +159,60 @@ def add_DEobs_subparser(subparsers):
         help='perform differential expression analysis of observe cells',
         description=(
             'Perfrom the genome wide differential expression analysis of all the perturbation regions.'
+            'Input: processed transcriptome matrix and sgrna matrix from the process output'
+            'sgrna dict file: perturbation region hg38 coordinates and the sgrna sequence targeting that region.'
+            'region and sgrnas separated by tab, and  sgrnas separated by comma'
+            'Output: up regulation p-value, downregulation p-value, fold change(compare with all the otehr cells) and average cpm'))
+
+    parser.add_argument('-t', 
+                        '--transcriptome_df', 
+                        dest='transcriptome_df', 
+                        required=True,
+                        type=str,
+                        help='specify the processed transcriptome matrix file (.h5)')
+    
+    parser.add_argument('-s', 
+                        '--sgrna', 
+                        dest='input_sgrna', 
+                        required=True,
+                        type=str,
+                        help='specify the processed sgrna matrix file. (.h5)')
+    
+    parser.add_argument('-d', 
+                        '-dict', 
+                        dest='dict', 
+                        required=True,
+                        type=str, 
+                        help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
+
+    parser.add_argument('-r', 
+                        '--threads', 
+                        dest = 'threads', 
+                        required=False,
+                        type=int,
+                        default=1,
+                        help='set number of barcode comparison threads. The default is 1')
+
+    parser.add_argument('-n', 
+                        '--norm', 
+                        dest = 'norm_method', 
+                        required=False,
+                        type=str,
+                        default='cpm',
+                        help='choose normalization methods: "cpm" or "metacell".')
+
+    parser.add_argument('-o', 
+                        '--output_dir', 
+                        dest='output_dir', 
+                        required=True,
+                        help='specify an output directory.')
+#DEobsboot
+def add_DEobsboot_subparser(subparsers):
+    parser = subparsers.add_parser(
+        'DEobsboot',
+        help='perform bootstrapping analysis of observe cells',
+        description=(
+            'Perfrom the genome wide differential expression analysis of all the perturbation regions with bootstrapping strategy.'
             'Input: processed transcriptome matrix and sgrna matrix from the process output'
             'sgrna dict file: perturbation region hg38 coordinates and the sgrna sequence targeting that region.'
             'region and sgrnas separated by tab, and  sgrnas separated by comma'
@@ -204,7 +260,7 @@ def add_DEobs_subparser(subparsers):
                         dest='output_dir', 
                         required=True,
                         help='specify an output directory.')
-
+    
 #DErand
 def add_DErand_subparser(subparsers):
     parser = subparsers.add_parser(
@@ -342,7 +398,7 @@ def add_global_subparser(subparsers):
                         dest='data_dir', 
                         required=True,
                         type=str,
-                        help='specify the p-value matrix directory of observation test.')
+                        help='specify the p-value matrix directory of observation test. (DEobs output folder)')
 
     parser.add_argument('-s', 
                         '-sgrna_dict', 
@@ -356,11 +412,11 @@ def add_global_subparser(subparsers):
                         dest='distr', 
                         required=True,
                         type=str,
-                        help='specify the random cell mean/std/10_perc file directory.')
+                        help='specify the random cell file directory. (DErand output folder)')
 
     parser.add_argument('-o', 
                         '--output_file', 
                         dest='output_file', 
                         required=True,
                         type=str,
-                        help='specify an output file name incluseing the directory, it has to be in csv format.')
+                        help='specify an output file name including the directory, it has to be in csv format.')

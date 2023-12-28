@@ -45,6 +45,13 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
     if list(sub_df.columns) != list(sgrna_df_bool.columns):
         logger.critical('File format error, make sure transcriptome df columns are the same as sgrna df.')
 
+    
+    gene_seq = sub_df.index
+    if len(gene_seq) != len(set(gene_seq)):
+        logger.critical('Duplication of mapping genes.')
+        unique_elements, counts = np.unique(gene_seq, return_counts=True)
+        duplicate_elements = unique_elements[counts > 1]
+
     #load sgRNA dictionary
     sgrna_dict  = read_sgrna_dict(SGRNA_DICT)
     
@@ -54,6 +61,9 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
     with open(TARGET_FILE) as ft:
         for line in ft:
             region, gene = line.strip().split('\t')
+            if gene in duplicate_elements:
+                logger.critical(str(gene) + ' duplication in the transcriptome. Skip calculating fold change.')
+                continue
             query_region_list.append(region)
             query_gene_list.append(gene)
 
@@ -150,12 +160,12 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
 
     #write to output file
     output_file=open(OUTPUT_FOLDER + 'fold_change.txt', 'w')
-    output_file.write('Region (sgRNA sequence)' + '\t' + 'Target gene' + '\t' + 'Number of cells' + '\t' + 'Fold change' + '\t' + 'P value' + '\t' + 'Perturb cpm' + '\t' + 'Background cpm' + '\n')
+    output_file.write('Region' + '\t' + 'sgRNA sequence' + '\t' + 'Target gene' + '\t' + 'Number of cells' + '\t' + 'Fold change' + '\t' + 'log(pval), t-test' + '\t' + 'Perturb cpm' + '\t' + 'Background cpm' + '\n')
 
     for idx in np.arange(len(query_region_list)):
         i = query_region_list[idx]
         target_gene = query_gene_list[idx]
-        output_file.write(str(i) + '\t' + str(target_gene) + '\t' + str(region_cell_list[idx]) + '\t' + str(region_fc_list[idx]) + '\t' + str(region_pval_list[idx]) + '\t' + str(region_pert_cpm_list[idx]) + '\t' + str(region_bg_cpm_list[idx])+ '\n')
+        output_file.write(str(i) + '\t' + 'All_sgRNA_combine' + '\t' + str(target_gene) + '\t' + str(region_cell_list[idx]) + '\t' + str(region_fc_list[idx]) + '\t' + str(region_pval_list[idx]) + '\t' + str(region_pert_cpm_list[idx]) + '\t' + str(region_bg_cpm_list[idx])+ '\n')
         for sg in All_sgRNA[idx]:
             sec_idx = list(All_sgRNA[idx]).index(sg)
             num_cell = All_num_cell[idx][sec_idx]
@@ -163,7 +173,7 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
             pvalue = All_pval_list[idx][sec_idx]
             pert_cpm = All_pert_cpm_list[idx][sec_idx]
             sgbg_cpm = All_bg_cpm_list[idx][sec_idx]
-            output_file.write(str(sg) + '\t' + str(target_gene)+ '\t' + str(num_cell) + '\t' + str(repression) + '\t' + str(pvalue) + '\t' + str(pert_cpm) + '\t' + str(sgbg_cpm) + '\n')
+            output_file.write(str(i) + '\t' + str(sg) + '\t' + str(target_gene)+ '\t' + str(num_cell) + '\t' + str(repression) + '\t' + str(pvalue) + '\t' + str(pert_cpm) + '\t' + str(sgbg_cpm) + '\n')
     
     output_file.close()
 

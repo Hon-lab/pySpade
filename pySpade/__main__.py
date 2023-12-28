@@ -71,6 +71,20 @@ def main():
             )        
         logger.info('Done.')
 
+    elif (args.command == 'DEobsboot'):
+        logger.info('Running DEobsboot command ...')
+        m = importlib.import_module(name=f'pySpade.{args.command}')
+
+        _ = m.DE_observe_bootstrap_cells(
+            sub_df_file = args.transcriptome_df,
+            sgrna_df = args.input_sgrna, 
+            sgrnas_file = args.dict,
+            num_processing = args.threads,
+            norm = args.norm_method,
+            output_dir = args.output_dir
+            )        
+        logger.info('Done.')
+
     elif (args.command == 'DErand'):
         logger.info('Running DErand command ...')
         m = importlib.import_module(name=f'pySpade.{args.command}')

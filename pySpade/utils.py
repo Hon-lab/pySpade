@@ -2,6 +2,7 @@
 import logging
 import numpy as np
 import pandas as pd
+import multiprocessing
 from multiprocessing import Pool
 import scipy.stats as stats
 import scipy.sparse as sp_sparse
@@ -181,6 +182,10 @@ def sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene,
     labels = ['sgRNA cells', 'other cells']
     set_axis_style(ax, labels)
     plt.savefig(output_file)
+
+def get_num_processes():
+    # Adjust this logic as needed based on your requirements
+    return min(multiprocessing.cpu_count(), 100)  # Set an upper limit, e.g., 4 processes
 
 def hypergeo_test(non_zero_array, sgrna_idx, i):
     #find indecies of cells in which expression of given gene is
