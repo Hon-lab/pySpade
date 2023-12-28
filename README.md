@@ -26,7 +26,7 @@ $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.0.2
+Version: 0.0.4
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -43,19 +43,44 @@ functions:
     
 ```
 
-* `process` : Process transcriptome output and sgrna output to remove experimental doublets sgrna outlier cells. Transcriptome matrix is from Cellranger output (outs folder). sgrna matrix column: cell barcodes consistent with transcriptome matrix, rows: sgrna sequence. The final output format is h5 file. The final output can be compressed to save disk space, but it may take more time to write the final output file.
+* `process` : Process transcriptome output and sgrna output to remove experimental doublets and sgrna outlier cells.
+    * Input 1: Transcriptome matrix is from Cellranger output (outs folder).
+    * Input 2: sgrna matrix column: cell barcodes consistent with transcriptome matrix, rows: sgrna sequence. The sgrna matrix is already filtered out potential noise sgrna. Acceptable format: pkl and csv.
+    * The final output format is h5 file. The final output can be compressed to save disk space, but it may take more time to write the final output file.
 
-* `explevel` : Check the average expression level of query genes in single cell matrix. Input: processed transcriptome matrix from the `process` output, query genes list has to be txt file, genes are seperated with new line.
 
-* `fc` : Check the fold change of perturbed region and individual sgRNA for query region and gene. Input: processed transcriptome and sgrna matrix from the `process` output and sgrna dict file (perturbation region hg38 coordinates and the sgrna sequence targeting that region. Region and sgrnas separated by tab, and sgrnas separated by comma)
+* `explevel` : Check the average expression level of query genes in single cell matrix.
+    * Input 1: processed transcriptome matrix from the `process` output.
+    * Input 2: Query genes list has to be txt file, genes are seperated with new line.
 
-* `DEobs` : Perfrom the genome wide differential expression analysis of all the perturbation regions. Input: processed transcriptome and sgrna matrix from the `process` output and sgrna dict file (perturbation region hg38 coordinates and the sgrna sequence targeting that region. Region and sgrnas separated by tab, and  sgrnas separated by comma). Output: up regulation p-value, downregulation p-value, fold change(compare with all the otehr cells) and average cpm.
 
-* `DErand` : Perfrom the genome wide differential expression analysis of 1000 random selection cells. There are two options for random selection: all cells with equal probability or probability based on sgrna number in the cells. User should specify the cell number to select randomly. It is recommended with either exact cell number or bins (with large amount of perturbation experiment in order to reduce computational overhead).
+* `fc` : Check the fold change of perturbed region and individual sgRNA for query region and gene. Good for test if positive controls work. P-value are calculated with Student's t-test.
+    * Input 1: processed transcriptome and sgrna matrix from the `process` output
+    * Inout 2: sgrna dict file (perturbation region hg38 coordinates and the sgrna name targeting that region. Region and sgrnas separated by tab, and sgrnas separated by comma. The sgrna name must match the index of sgrna matrix.)
+        * Example:
+	* chr1:1234567-1235067    sg1;sg2;sg3;sg4;sg5
+	* chr2:1234567-1235067    sg6;sg7;sg8;sg9;sg10
+    * Input 3: Query file, the query region and query test, separate by tab.
+        * Example:
+	* chr1:1234567-1235067    GENE1
+	* chr2:1234567-1235067    GENE2
+
+
+* `DEobs` : Perfrom the genome wide differential expression analysis of all the perturbation regions.
+    * Input 1: processed transcriptome and sgrna matrix from the `process` output
+    * Input 2: sgrna dict file (perturbation region hg38 coordinates and the sgrna sequence targeting that region. Region and sgrnas separated by tab, and  sgrnas separated by comma. The sgrna name must match the index of sgrna matrix).
+    * Output files: up regulation p-value, downregulation p-value, fold change(compare with all the other cells) and average cpm.
+
+
+* `DErand` : Perfrom the genome wide differential expression analysis of 1000 random selection cells.
+    * There are two options for random selection: all cells with equal probability or probability based on sgrna number in the cells. User should specify the cell number to select randomly. It is recommended with either exact cell number or bins (with large amount of perturbation experiment in order to reduce computational overhead).
+
 
 * `local` : Using the observation p value and randomization bavckground p value to calculate the adjusted p value based on Gaussian distribution approximation. Local hits calculation includes the genes within plus and minus 2 Mb of the perturbation region. The output is a csv file with all hits information.
 
-* `global` : Using the observation p value and randomization background p value to calculate the adjusted p value based on Gaussian distribution approximation. The output is a csv file with all hits information. Cutoff for p value is -1 (ln), fold change is 10%. Users can apply more stringent cutoff for their own purpose. 
+
+* `global` : Using the observation p value and randomization background p value to calculate the adjusted p value based on Gaussian distribution approximation. The output is a csv file with all hits information. 
+
 
 ## Contacts
 _______
