@@ -21,10 +21,10 @@ def parse_args(args=sys.argv[1:]):
     add_explevel_subparser(subparsers)
     add_fc_subparser(subparsers)
     add_DEobs_subparser(subparsers)
-    add_DEobsboot_subparser(subparsers)
     add_DErand_subparser(subparsers)
     add_local_subparser(subparsers)
     add_global_subparser(subparsers)
+    add_manhattan_subparser(subparsers)
 
     if len(sys.argv) > 1:
         if (sys.argv[1] == '--version' or sys.argv[1] == '-v'):
@@ -61,7 +61,7 @@ def add_process_subparser(subparsers):
                         required=True,
                         type=str,
                         help='Specify the sgrna matrix file.'
-                        'Please make sure the barcodes are consistent with transcriptome if thre are multiple libraries. File format: pkl or csv')
+                        'Please make sure the barcodes are consistent with transcriptome if there are multiple libraries. File format: pkl or csv')
 
     parser.add_argument('-m', 
                         '--cell_multiplex',
@@ -201,66 +201,20 @@ def add_DEobs_subparser(subparsers):
                         default='cpm',
                         help='choose normalization methods: "cpm" or "metacell".')
 
+    parser.add_argument('-b', 
+                        '--bg', 
+                        dest = 'bg', 
+                        required=False,
+                        type=str,
+                        default='complement',
+                        help='the background cells for comparason. Default is complementary (all the other cells). Specify the key in sgRNA txt file.')
+    
     parser.add_argument('-o', 
                         '--output_dir', 
                         dest='output_dir', 
                         required=True,
                         help='specify an output directory.')
-#DEobsboot
-def add_DEobsboot_subparser(subparsers):
-    parser = subparsers.add_parser(
-        'DEobsboot',
-        help='perform bootstrapping analysis of observe cells',
-        description=(
-            'Perfrom the genome wide differential expression analysis of all the perturbation regions with bootstrapping strategy.'
-            'Input: processed transcriptome matrix and sgrna matrix from the process output'
-            'sgrna dict file: perturbation region hg38 coordinates and the sgrna sequence targeting that region.'
-            'region and sgrnas separated by tab, and  sgrnas separated by comma'
-            'Output: up regulation p-value, downregulation p-value, fold change(compare with all the otehr cells) and average cpm'))
 
-    parser.add_argument('-t', 
-                        '--transcriptome_df', 
-                        dest='transcriptome_df', 
-                        required=True,
-                        type=str,
-                        help='specify the processed transcriptome matrix file')
-    
-    parser.add_argument('-s', 
-                        '--sgrna', 
-                        dest='input_sgrna', 
-                        required=True,
-                        type=str,
-                        help='specify the processed sgrna matrix file.')
-    
-    parser.add_argument('-d', 
-                        '-dict', 
-                        dest='dict', 
-                        required=True,
-                        type=str, 
-                        help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
-
-    parser.add_argument('-r', 
-                        '--threads', 
-                        dest = 'threads', 
-                        required=False,
-                        type=int,
-                        default=1,
-                        help='set number of barcode comparison threads. The default is 1')
-
-    parser.add_argument('-n', 
-                        '--norm', 
-                        dest = 'norm_method', 
-                        required=False,
-                        type=str,
-                        default='cpm',
-                        help='choose normalization methods: "cpm" or "metacell".')
-
-    parser.add_argument('-o', 
-                        '--output_dir', 
-                        dest='output_dir', 
-                        required=True,
-                        help='specify an output directory.')
-    
 #DErand
 def add_DErand_subparser(subparsers):
     parser = subparsers.add_parser(
@@ -286,6 +240,13 @@ def add_DErand_subparser(subparsers):
                         required=True,
                         type=str,
                         help='specify the processed sgrna matrix file.')
+    
+    parser.add_argument('-d', 
+                        '-dict', 
+                        dest='dict', 
+                        required=True,
+                        type=str, 
+                        help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
 
     parser.add_argument('-m', 
                         '--num',
@@ -309,7 +270,7 @@ def add_DErand_subparser(subparsers):
                         type=int,
                         default=1,
                         help='set number of barcode comparison threads. The default is 1')
-
+    
     parser.add_argument('-n', 
                         '--norm', 
                         dest = 'norm_method', 
@@ -318,12 +279,20 @@ def add_DErand_subparser(subparsers):
                         default='cpm',
                         help='choose normalization methods: "cpm" or "metacell".')
 
-    parser.add_argument('-d', 
+    parser.add_argument('-a', 
                         '--randomization_method', 
                         dest = 'randomization_method', 
                         required=True,
                         type=str,
                         help='choose randomization methods: "equal" or "sgrna".')
+    
+    parser.add_argument('-b', 
+                        '--bg', 
+                        dest = 'bg', 
+                        required=False,
+                        type=str,
+                        default='complement',
+                        help='the background cells for comparason. Default is complementary (all the other cells). Specify the key in sgRNA txt file.')
 
     parser.add_argument('-o', 
                         '--output_dir', 
@@ -336,8 +305,8 @@ def add_local_subparser(subparsers):
     parser = subparsers.add_parser(
         'local',
         help='perform local hit analysis (+-2Mb) with observation data and random background',
-        description=('Using the observation p value and randomization bavckground p value'
-                     'to calculate the adjusted p value based on Gaussian distribution approximation'
+        description=('Using the observation p-value and randomization bavckground p-value'
+                     'to calculate the adjusted p-value based on gamma distribution approximation'
                      'Local hits calculation includes the genes within plus and minus 2 Mb of the perturbation region.'
                      'The output is a csv file with all hits information.'))
    
@@ -381,10 +350,9 @@ def add_global_subparser(subparsers):
     parser = subparsers.add_parser(
         'global',
         help='perform global hit analysis with observation data and random background',
-        description=('Using the observation p value and randomization bavckground p value'
-                     'to calculate the adjusted p value based on Gaussian distribution approximation'
-                     'The output is a csv file with all hits information.'
-                     'cutoff for p value is -1 (ln), fold change is 10%'))
+        description=('Using the observation p-value and randomization bavckground p-value'
+                     'to calculate the adjusted p-value based on gamma distribution approximation'
+                     'The output is a csv file with all hits information.'))
     
     parser.add_argument('-f', 
                         '--file_dir', 
@@ -420,3 +388,55 @@ def add_global_subparser(subparsers):
                         required=True,
                         type=str,
                         help='specify an output file name including the directory, it has to be in csv format.')
+    
+#manhattan
+def add_manhattan_subparser(subparsers):
+    parser = subparsers.add_parser(
+        'manhattan',
+        help='generate Manhattan plots for each perturbation region',
+        description=('Use the output csv file from global function to generate Manhattan plots for each perturbation region'))
+    
+    parser.add_argument('-f', 
+                        '--file_dir', 
+                        dest='file_dir', 
+                        required=True,
+                        type=str,
+                        help='specify the file directory of "process" function output, the Trans_genome_seq.npy file is required at this step.')
+    
+    parser.add_argument('-g', 
+                        '--global_csv', 
+                        dest='global_csv', 
+                        required=True,
+                        type=str,
+                        help='specify the csv file directory from the output of global function.')
+              
+    parser.add_argument('-cx', 
+                        '--cutoff_expression', 
+                        dest='cutoff_expression', 
+                        required=False,
+                        type=float,
+                        default=0.05,
+                        help='specify the cutoff of expressed genes. Default is 0.05 (genes expressed in more than 5 percent of cells)')
+
+    parser.add_argument('-cf', 
+                        '--cutoff_fc', 
+                        dest='cutoff_fc', 
+                        required=False,
+                        type=float,
+                        default=0.2,
+                        help='specify the cutoff of fold change. Default is 0.2 (fold change is more than 20 percent)')
+    
+    parser.add_argument('-cs', 
+                        '--cutoff_significance', 
+                        dest='cutoff_significance', 
+                        required=False,
+                        type=float,
+                        default=-5,
+                        help='specify the cutoff of Significance_scpre. Default is -5 (Significance score is smaller than -5)')
+    
+    parser.add_argument('-o', 
+                        '--output_folder', 
+                        dest='output_folder', 
+                        required=True,
+                        type=str,
+                        help='specify an output folder directory.')

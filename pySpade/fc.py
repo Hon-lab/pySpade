@@ -29,28 +29,33 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
                  TARGET_FILE, 
                  OUTPUT_FOLDER):
 
+
     TRANSCRIPTOME_FILE = glob.glob(TRANSCRIPTOME_DIR + 'Singlet_sub_df.*')
     if (TRANSCRIPTOME_FILE[0].endswith('pkl')) == True:
         sub_df = pd.read_pickle(TRANSCRIPTOME_FILE[0])
     elif (TRANSCRIPTOME_FILE[0].endswith('h5')) == True:
         sub_df = pd.read_hdf(TRANSCRIPTOME_FILE[0], 'df')
-
+    logger.info('Finish loading transcriptome matrix.')
     total_seq_reads = sub_df.sum(axis=0)
+    
     SGRNA_FILE = glob.glob(TRANSCRIPTOME_DIR + 'Singlet_sgRNA*')
     if (SGRNA_FILE[0].endswith('pkl')):
-        sgrna_df_bool = pd.read_pickle(SGRNA_FILE[0]) > 0 
+        sgrna_df_bool_raw = pd.read_pickle(SGRNA_FILE[0]) > 0 
     elif (SGRNA_FILE[0].endswith('h5')):
-        sgrna_df_bool = pd.read_hdf(SGRNA_FILE[0], 'df') > 0
+        sgrna_df_bool_raw = pd.read_hdf(SGRNA_FILE[0], 'df') > 0
+
+    #keep the sgRNAs with cells
+    sgrna_df_bool = sgrna_df_bool_raw.loc[sgrna_df_bool_raw.index[np.sum(sgrna_df_bool_raw, axis=1) > 0], :]
+    logger.info('Finish loading sgRNA matrix.')
 
     if list(sub_df.columns) != list(sgrna_df_bool.columns):
-        logger.critical('File format error, make sure transcriptome df columns are the same as sgrna df.')
+        logger.critical('File format error, make sure transcriptome df columns (cell barcodes) are the same as sgrna df.')
 
-    
     gene_seq = sub_df.index
     if len(gene_seq) != len(set(gene_seq)):
-        logger.critical('Duplication of mapping genes.')
-        unique_elements, counts = np.unique(gene_seq, return_counts=True)
-        duplicate_elements = unique_elements[counts > 1]
+        logger.critical('Duplication of genes in the transcriptome matrix.')
+    unique_elements, counts = np.unique(gene_seq, return_counts=True)
+    duplicate_elements = unique_elements[counts > 1]
 
     #load sgRNA dictionary
     sgrna_dict  = read_sgrna_dict(SGRNA_DICT)
@@ -64,6 +69,9 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
             if gene in duplicate_elements:
                 logger.critical(str(gene) + ' duplication in the transcriptome. Skip calculating fold change.')
                 continue
+            if gene not in unique_elements:
+                logger.critical(str(gene) + ' missing in the transcriptome file. Skip calculating fold change. Please check the gene name.')
+                continue
             query_region_list.append(region)
             query_gene_list.append(gene)
 
@@ -76,6 +84,8 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
         All_cpm_array.append(cpm_array)
 
     #calculate repression efficiency for single sgRNA
+    All_region_list = []
+    All_gene_list = []
     All_FC_list = []
     All_sgRNA = []
     All_num_cell = []
@@ -151,6 +161,8 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
             sgrna_seq.append(sgrna)
             num_cell_list.append(num_cell)
 
+        All_region_list.append(i)
+        All_gene_list.append(target_gene)
         All_FC_list.append(fc_list)
         All_sgRNA.append(sgrna_seq)
         All_num_cell.append(num_cell_list)
@@ -162,9 +174,9 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
     output_file=open(OUTPUT_FOLDER + 'fold_change.txt', 'w')
     output_file.write('Region' + '\t' + 'sgRNA sequence' + '\t' + 'Target gene' + '\t' + 'Number of cells' + '\t' + 'Fold change' + '\t' + 'log(pval), t-test' + '\t' + 'Perturb cpm' + '\t' + 'Background cpm' + '\n')
 
-    for idx in np.arange(len(query_region_list)):
-        i = query_region_list[idx]
-        target_gene = query_gene_list[idx]
+    for idx in np.arange(len(All_region_list)):
+        i = All_region_list[idx]
+        target_gene = All_gene_list[idx]
         output_file.write(str(i) + '\t' + 'All_sgRNA_combine' + '\t' + str(target_gene) + '\t' + str(region_cell_list[idx]) + '\t' + str(region_fc_list[idx]) + '\t' + str(region_pval_list[idx]) + '\t' + str(region_pert_cpm_list[idx]) + '\t' + str(region_bg_cpm_list[idx])+ '\n')
         for sg in All_sgRNA[idx]:
             sec_idx = list(All_sgRNA[idx]).index(sg)
@@ -176,6 +188,6 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
             output_file.write(str(i) + '\t' + str(sg) + '\t' + str(target_gene)+ '\t' + str(num_cell) + '\t' + str(repression) + '\t' + str(pvalue) + '\t' + str(pert_cpm) + '\t' + str(sgbg_cpm) + '\n')
     
     output_file.close()
-
+    logger.info('Job is done.')
 if __name__ == '__main__':
     pass

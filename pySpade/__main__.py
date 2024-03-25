@@ -67,20 +67,7 @@ def main():
             sgrnas_file = args.dict,
             num_processing = args.threads,
             norm = args.norm_method,
-            output_dir = args.output_dir
-            )        
-        logger.info('Done.')
-
-    elif (args.command == 'DEobsboot'):
-        logger.info('Running DEobsboot command ...')
-        m = importlib.import_module(name=f'pySpade.{args.command}')
-
-        _ = m.DE_observe_bootstrap_cells(
-            sub_df_file = args.transcriptome_df,
-            sgrna_df = args.input_sgrna, 
-            sgrnas_file = args.dict,
-            num_processing = args.threads,
-            norm = args.norm_method,
+            background_cells = args.bg,
             output_dir = args.output_dir
             )        
         logger.info('Done.')
@@ -92,11 +79,14 @@ def main():
         _ = m.DE_random_cells(
             sub_df_file = args.transcriptome_df,
             sgrna_df = args.input_sgrna,
+            sgrnas_file = args.dict,
             num_cell = args.num,
             iteration = args.iteration,
             num_processing = args.threads,
+            #gpu_enable = args.gpu_enable,
             norm = args.norm_method,
             RAND_M = args.randomization_method,
+            background_cells = args.bg,
             output_dir = args.output_dir
             )        
         logger.info('Done.')
@@ -124,6 +114,20 @@ def main():
             SGRNA_DICT = args.sgrna_dict,
             DISTRI_DIR = args.distr,
             OUTPUT_DF = args.output_file
+            )        
+        logger.info('Done.')
+    
+    elif (args.command == 'manhattan'):
+        logger.info('Running manhattan command ...')
+        m = importlib.import_module(name=f'pySpade.{args.command}')
+
+        _ = m.manhattan_plots(
+            FILE_DIR = args.file_dir,
+            GLBOAL_HITS = args.global_csv,
+            CUTOFF_EXP = args.cutoff_expression,
+            CUTOFF_FC = args.cutoff_fc,
+            CUTOFF_SIG = args.cutoff_significance,
+            OUTPUT = args.output_folder
             )        
         logger.info('Done.')
 

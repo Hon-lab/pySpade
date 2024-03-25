@@ -218,6 +218,34 @@ def hypergeo_test(non_zero_array, sgrna_idx, i):
     
     return pval_down, pval_up, fc, cpm
 
+def hypergeo_test_NC(non_zero_array, sgrna_idx, NC_idx, i):
+    #find indecies of cells in which expression of given gene is
+    #equal or less than the median of this gene in the whole population
+    median_cell_idx  = np.argwhere(non_zero_array <= np.median(non_zero_array))
+
+    #find the same cells subset in the cells with a given sgRNA
+    overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx)
+    
+    fc = (np.mean(non_zero_array[sgrna_idx]) + 0.01) / (np.mean(non_zero_array[NC_idx]) + 0.01)
+    cpm = np.mean(non_zero_array[sgrna_idx])
+    
+    #perform hypergeometric test, get the upper tail
+    k = len(overlap_cell_idx)
+    M = len(non_zero_array)
+    n = len(median_cell_idx)
+    N = len(sgrna_idx)
+    try:
+        pval_up = stats.hypergeom.logcdf(k, M, n, N).item()
+    except:
+        pval_up = float('nan')
+        
+    try:
+        pval_down = stats.hypergeom.logsf(k, M, n, N).item()
+    except:
+        pval_down = float('nan')
+    
+    return pval_down, pval_up, fc, cpm
+
 def perform_DE(sgrna_idx, input_array, idx, num_processes, pval_list_down, pval_list_up, fc_list, cpm_list):
     nonzero_pval_list_up = []
     nonzero_pval_list_down = []
@@ -228,6 +256,30 @@ def perform_DE(sgrna_idx, input_array, idx, num_processes, pval_list_down, pval_
         for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test, zip(
                 input_array,
                 itertools.repeat(sgrna_idx),
+                idx)
+        ):
+            nonzero_pval_list_down.append(pval_down)
+            nonzero_pval_list_up.append(pval_up)
+            nonzero_fc_list.append(fc)
+            nonzero_cpm_list.append(cpm)
+    for i in idx:
+        pval_list_up[i] = nonzero_pval_list_up.pop(0)
+        pval_list_down[i] = nonzero_pval_list_down.pop(0)
+        fc_list[i] = nonzero_fc_list.pop(0)
+        cpm_list[i] = nonzero_cpm_list.pop(0)
+    return len(sgrna_idx), pval_list_up, pval_list_down, fc_list, cpm_list
+
+def perform_DE_NC(sgrna_idx, NC_idx, input_array, idx, num_processes, pval_list_down, pval_list_up, fc_list, cpm_list):
+    nonzero_pval_list_up = []
+    nonzero_pval_list_down = []
+    nonzero_fc_list = []
+    nonzero_cpm_list = []
+    
+    with Pool(processes=num_processes) as p:
+        for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test_NC, zip(
+                input_array,
+                itertools.repeat(sgrna_idx),
+                itertools.repeat(NC_idx),
                 idx)
         ):
             nonzero_pval_list_down.append(pval_down)
@@ -268,13 +320,13 @@ def get_neighbor_genes(region, query_range, annot_df):
         1232004303,1391350276,1536488912,1674883629,1808681051,
         1943767673,2077042982,2191407310,2298451028,2400442217,
         2490780562,2574038003,2654411288,2713028904,2777473071,
-        2824183054,2875001522,3031029399
+        2824183054,2875001522,3031029399, 3088256814
     ]
     
     chr_order = [
         'chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8',
         'chr9', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15',
-        'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX'
+        'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX', 'chrY'
     ]
 
     enh_chrom, left, right = re.split('[:|-]', region)
@@ -290,16 +342,46 @@ def get_distance(region, gene_pos):
         1232004303,1391350276,1536488912,1674883629,1808681051,
         1943767673,2077042982,2191407310,2298451028,2400442217,
         2490780562,2574038003,2654411288,2713028904,2777473071,
-        2824183054,2875001522,3031029399
+        2824183054,2875001522,3031029399, 3088256814
     ]
     
     chr_order = [
         'chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 
         'chr9', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15',
-        'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX'
+        'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX', 'chrY'
     ]
     
     enh_chrom, left, right = re.split('[:|-]', region)
     dist =  int(gene_pos) - int(left) - length_list[chr_order.index(enh_chrom)]
     
     return np.absolute(dist)
+
+def outlier_plot(ax, fc_list, plot_x_val, plot_y_val, outlier_idx, plot_idx, color):
+    outlier_fc = np.array([])
+    outlier_y_val = np.array([])
+    outlier_x_val = np.array([])
+        
+    idx = np.intersect1d(plot_idx, outlier_idx)
+    for j in idx:
+        if fc_list[j] > 1:
+            outlier_fc = np.append(outlier_fc, get_fc_range(fc_list[j]))
+        else:
+            outlier_fc = np.append(outlier_fc, get_fc_range(1/fc_list[j]))
+            
+        outlier_x_val = np.append(outlier_x_val, plot_x_val[j])
+        outlier_y_val = np.append(outlier_y_val, plot_y_val[j])
+        
+    ax.scatter(outlier_x_val, outlier_y_val,
+               color=color,
+               s=outlier_fc,
+               marker='o',
+               edgecolor='w')
+
+def get_fc_range(val):
+    if (val >= 4):
+        fc_range = 200
+    elif (val >= 2):
+        fc_range = 100
+    else:
+        fc_range = 50
+    return fc_range

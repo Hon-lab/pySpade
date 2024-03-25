@@ -41,7 +41,8 @@ def process_singlet(WORK_DIR,
         logger.critical("Incorrect compression method.")
         sys.exit(0)
     
-    if (CELL_MULTIPLEX) != None:
+    if (CELL_MULTIPLEX) != False:
+        logger.info('CellPlex file: ' + str(CELL_MULTIPLEX))
         logger.info('Remove doublets in this dataset.')
         #calculate HTO and filter
         ab_list = []
@@ -122,9 +123,11 @@ def process_singlet(WORK_DIR,
         elif (COMP=='False'):
             no_outlier_sgrna_df.to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w')    
             sub_df[no_outlier_sgrna_df.columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w')
-    
+            
+        logger.info('Job is done.')
+
     #Without CellPlex, save every cell
-    else:
+    if (CELL_MULTIPLEX) == False:
         logger.info('No CellPlex file. Will not remove any doublets. Keep all the cells.')
 
         #Load sgrna df 
@@ -138,7 +141,8 @@ def process_singlet(WORK_DIR,
         filtered_matrix_h5 = WORK_DIR + 'filtered_feature_bc_matrix.h5'
         filtered_feature_bc_matrix = get_matrix_from_h5(filtered_matrix_h5)
         sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
-        
+        del filtered_feature_bc_matrix
+
         new_columns = set(sgRNA_df.columns).intersection(set(sub_df.columns))
         CorrSgrnaPerCell_out, sgrna_mean , sgrna_median = get_sgrna_per_cell(sgRNA_df[new_columns], return_mean=True, return_median=True)
         logger.info('Cell number: ' + str(len(new_columns)))
@@ -151,11 +155,16 @@ def process_singlet(WORK_DIR,
         np.save(OUTPUT_DIR + 'Perc_cell_expr', (np.sum(sub_df[new_columns] > 0, axis=1) / len(new_columns) *100).values)
         
         if (COMP=='True'):
-            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=9, complib='zlib')    
+            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=9, complib='zlib')
+            del sgRNA_df    
             sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w', complevel=9, complib='zlib')
+            
         elif (COMP=='False'):
-            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w')    
+            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w')
+            del sgRNA_df
             sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w')    
+
+        logger.info('Job is done.')
 
 if __name__ == '__main__':
     pass

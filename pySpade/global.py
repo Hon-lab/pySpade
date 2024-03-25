@@ -40,8 +40,8 @@ def global_analysis(FILE_DIR,
     gene_seq = np.load(FILE_DIR + 'Trans_genome_seq.npy', allow_pickle=True)
     if len(gene_seq) != len(set(gene_seq)):
         logger.critical('Duplication of mapping genes. Duplicates are removed in the analysis.')
-        unique_elements, counts = np.unique(gene_seq, return_counts=True)
-        duplicate_elements = unique_elements[counts > 1]
+    unique_elements, counts = np.unique(gene_seq, return_counts=True)
+    duplicate_elements = unique_elements[counts > 1]
     #read the plotting annotation
     annot_df_dup = read_annot_df()
     #There are many non-coding genes duplication in the annot_df, only keep one.
@@ -51,13 +51,7 @@ def global_analysis(FILE_DIR,
     sgrna_dict  = read_sgrna_dict(SGRNA_DICT)
 
     #Save the randomized bin with list 
-    
-    Num = [int(i.split('/')[-1].split('.')[0].split('-')[-1]) for i in glob.glob(DISTRI_DIR+ '/Down_dist_mean-*')]
-    if len([int(i.split('/')[-1].split('.')[0].split('-')[-1]) for i in glob.glob(DISTRI_DIR+ '/Down_dist_mean-*')]) != \
-        len([int(i.split('/')[-1].split('.')[0].split('-')[-1]) for i in glob.glob(DISTRI_DIR+ '/Up_dist_mean-*')]):
-        logger.critical('Background distribution files error!')
-        sys.exit(0)
-
+    Num = list(set([int(i.split('/')[-1].split('.')[0].split('-')[-2]) for i in glob.glob(DISTRI_DIR+ '/Down_dist_gamma-*')]))
     logger.info(f'{len(Num)} sets of background distribution for global analysis.')
 
     #Calcualte pval
@@ -65,7 +59,7 @@ def global_analysis(FILE_DIR,
         'idx', 'gene_names', 'chromosome', 'pos', 'strand', 
         'color_idx', 'chr_idx', 
         'region', 'num_cell', 'bin',
-        'log(pval)-hypergeom', 'fc', 'log(padj)-Gaussian', 'fc_by_rand_dist_cpm', 'pval-empirical', 'cpm_perturb', 'cpm_bg']
+        'log(pval)-hypergeom', 'fc', 'Significance_score', 'fc_by_rand_dist_cpm', 'pval-empirical', 'cpm_perturb', 'cpm_bg']
     global_hits_df = pd.DataFrame(columns=df_column_list)
 
     #Generate bin-region dictionary 
@@ -86,10 +80,12 @@ def global_analysis(FILE_DIR,
         logger.info(f'Num of regions in this bin: {len(bin_dict[b])}')
 
         #Load the background files
-        down_mean = np.load(DISTRI_DIR + 'Down_dist_mean-%s.npy'%(str(b)))
-        down_std = np.load(DISTRI_DIR + 'Down_dist_std-%s.npy'%(str(b))) 
-        up_mean = np.load(DISTRI_DIR + 'Up_dist_mean-%s.npy'%(str(b)))
-        up_std = np.load(DISTRI_DIR + 'Up_dist_std-%s.npy'%(str(b)))
+        down_A = np.load(DISTRI_DIR + 'Down_dist_gamma-%s-A.npy'%(str(b)))
+        down_B = np.load(DISTRI_DIR + 'Down_dist_gamma-%s-B.npy'%(str(b)))
+        down_C = np.load(DISTRI_DIR + 'Down_dist_gamma-%s-C.npy'%(str(b)))
+        up_A = np.load(DISTRI_DIR + 'Up_dist_gamma-%s-A.npy'%(str(b)))
+        up_B = np.load(DISTRI_DIR + 'Up_dist_gamma-%s-B.npy'%(str(b)))
+        up_C = np.load(DISTRI_DIR + 'Up_dist_gamma-%s-C.npy'%(str(b)))
         cpm_mean = np.load(DISTRI_DIR + 'Cpm_mean-%s.npy'%(str(b)))
 
         for region in bin_dict[b]:
@@ -109,26 +105,29 @@ def global_analysis(FILE_DIR,
             fc_cutoff = 0
             up_i = np.where(np.array(fc_cpm) > (1 + fc_cutoff))[0]
             up_idx = np.array(list(set(up_i).intersection(set(np.where(pval_list_up < pval_cutoff)[0]))))
-
             down_i = np.where(np.array(fc_cpm) < (1 - fc_cutoff))[0]
             down_idx = np.array(list(set(down_i).intersection(set(np.where(pval_list_down < pval_cutoff)[0]))))
+
             #Calculate the overlap genes with annot_df, and only save the information on those genes.
             unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
-
             up_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))) #up-regulated genes found in both annotation file and transcriptome df
             up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
             down_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[down_idx])))
             down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
 
-            #Calculate p-value adj for Gaussian method 
-            down_zscore_list = (pval_list_down[down_keep_genes_idx] - down_mean[down_keep_genes_idx]) / down_std[down_keep_genes_idx]
-            down_padj_list = scipy.stats.norm.logsf(abs(down_zscore_list))
+            #Calculate p-value adj for gamma distribution
+            down_padj_list = []
+            for i in down_keep_genes_idx:
+                down_padj = scipy.stats.gamma.logsf(-pval_list_down[i], down_A[i], down_B[i], down_C[i])
+                down_padj_list.append(down_padj)
             down_hit_fc_list = fc_cpm[down_keep_genes_idx]
             down_cpm = cpm[down_keep_genes_idx]
             down_cpm_bg = cpm_mean[down_keep_genes_idx]
 
-            up_zscore_list = (pval_list_up[up_keep_genes_idx] - up_mean[up_keep_genes_idx]) / up_std[up_keep_genes_idx]
-            up_padj_list = scipy.stats.norm.logsf(abs(up_zscore_list))
+            up_padj_list = []
+            for i in up_keep_genes_idx:
+                up_padj = scipy.stats.gamma.logsf(-pval_list_up[i], up_A[i], up_B[i], up_C[i])
+                up_padj_list.append(up_padj)
             up_hit_fc_list = fc_cpm[up_keep_genes_idx]
             up_cpm = cpm[up_keep_genes_idx]
             up_cpm_bg = cpm_mean[up_keep_genes_idx]
@@ -147,34 +146,36 @@ def global_analysis(FILE_DIR,
             emp_pval_up = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pval_list_up[up_keep_genes_idx], axis=0) / iter_num
 
             #save to csv file: down-regulation gene 
-            global_gene_series = annot_df[annot_df['gene_names'].isin(down_keep_genes)].set_index('idx').sort_index()
+            global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
             global_gene_series['log(pval)-hypergeom'] = pval_list_down[down_keep_genes_idx]
             global_gene_series['fc'] = fc[down_keep_genes_idx]
-            global_gene_series['log(padj)-Gaussian'] = down_padj_list
+            global_gene_series['Significance_score'] = down_padj_list
             global_gene_series['fc_by_rand_dist_cpm'] = down_hit_fc_list
             global_gene_series['pval-empirical'] = emp_pval_down
             global_gene_series['cpm_perturb'] = down_cpm
             global_gene_series['cpm_bg'] = down_cpm_bg
             global_gene_series['idx'] = global_gene_series.index
-            global_hits_df = global_hits_df.append(global_gene_series)
+            #global_hits_df = global_hits_df.append(global_gene_series)
+            global_hits_df = pd.concat([global_hits_df, global_gene_series], ignore_index=True)
 
             #save to csv file: up-regulation gene 
-            global_gene_series = annot_df[annot_df['gene_names'].isin(up_keep_genes)].set_index('idx').sort_index()
+            global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
             global_gene_series['log(pval)-hypergeom'] = pval_list_up[up_keep_genes_idx]
             global_gene_series['fc'] = fc[up_keep_genes_idx]
-            global_gene_series['log(padj)-Gaussian'] = up_padj_list
+            global_gene_series['Significance_score'] = up_padj_list
             global_gene_series['fc_by_rand_dist_cpm'] = up_hit_fc_list
             global_gene_series['pval-empirical'] = emp_pval_up
             global_gene_series['cpm_perturb'] = up_cpm
             global_gene_series['cpm_bg'] = up_cpm_bg
             global_gene_series['idx'] = global_gene_series.index
-            global_hits_df = global_hits_df.append(global_gene_series)
+            #global_hits_df = global_hits_df.append(global_gene_series)
+            global_hits_df = pd.concat([global_hits_df, global_gene_series], ignore_index=True)
             
             logger.info(f'Finish region: {region}')
     
@@ -182,9 +183,11 @@ def global_analysis(FILE_DIR,
     rem_dup_global_hits_df = global_hits_df[~global_hits_df['gene_names'].isin(duplicate_elements)]
 
     if OUTPUT_DF.endswith('.csv'):
-        rem_dup_global_hits_df[rem_dup_global_hits_df['log(padj)-Gaussian'] < pval_cutoff].to_csv(OUTPUT_DF)
+        rem_dup_global_hits_df[rem_dup_global_hits_df['Significance_score'] < pval_cutoff].to_csv(OUTPUT_DF)
     else:
-        rem_dup_global_hits_df[rem_dup_global_hits_df['log(padj)-Gaussian'] < pval_cutoff].to_csv(OUTPUT_DF + '.csv')
+        rem_dup_global_hits_df[rem_dup_global_hits_df['Significance_score'] < pval_cutoff].to_csv(OUTPUT_DF + '.csv')
 
+    logger.info('Job is done.')
+    
 if __name__ == '__main__':
     pass

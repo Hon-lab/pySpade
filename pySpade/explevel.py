@@ -63,6 +63,7 @@ def Calculate_gene_expression(TRANSCRIPTOME_DIR,
             output_file.write(str(gene) + '\t' + str(ave_cpm) + '\t' + str(median_cpm) + '\t' + str(perc_cell) + '\n')
             logger.info('Finish processing ' + str(gene))
         output_file.close()
+        logger.info('Job is done.')
 
     else:
         logger.info('Gene' + '\t' + 'Average expression (cpm)' + '\t' + 'Median cpm' + '\t' + 'Portion of cell express' + '\n')
@@ -75,7 +76,7 @@ def Calculate_gene_expression(TRANSCRIPTOME_DIR,
             median_cpm = np.median(dist)
             perc_cell = np.sum(dist > 0) /len(dist)
             logger.info(str(gene) + '\t' + str(ave_cpm) + '\t' + str(median_cpm) + '\t' + str(perc_cell) + '\n')
-
+        logger.info('Job is done.')
     
 
 if __name__ == '__main__':
