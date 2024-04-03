@@ -257,7 +257,7 @@ optional arguments:
   -cf CUTOFF_FC, --cutoff_fc CUTOFF_FC
                         specify the cutoff of fold change. Default is 0.2 (fold change is more than 20 percent)
   -cs CUTOFF_SIGNIFICANCE, --cutoff_significance CUTOFF_SIGNIFICANCE
-                        specify the cutoff of Significance_scpre. Default is -5 (Significance score is smaller than -5)
+                        specify the cutoff of Significance_score. Default is -5 (Significance score is smaller than -5)
   -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
                         specify an output folder directory.
 ```
