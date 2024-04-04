@@ -182,6 +182,9 @@ def local_analysis(FILE_DIR,
         local_gene_series['cpm_perturb'] = cpm[down_keep_genes_idx]
         local_gene_series['cpm_bg'] = cpm_mean[down_keep_genes_idx]
 
+        local_gene_df = pd.concat([local_gene_df, local_gene_series], ignore_index=True)
+        local_gene_df = local_gene_df.reindex(columns=df_column_list)
+        
         local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
         local_gene_series['region'] = region
         dist_list = []

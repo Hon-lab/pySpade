@@ -100,7 +100,13 @@ def manhattan_plots(FILE_DIR,
 
         num_sgrna_cell = express_subset_df['num_cell'].values[0]
         if len(re.split(r'[:-]+', region)) == 3:
-            enh_chrom, left, right = re.split(r'[:-]+', region)
+            _, left, right = re.split(r'[:-]+', region)
+            if (_ in chr_order) == True: 
+                enh_chrom = _
+            else:
+                logger.info('Not valid chromosome coordinates, plot without perturbation region line.')
+                enh_chrom = 'chr1'
+                left = 0
         else:
             logger.info('No chromosome coordinates info, plot without perturbation region line.')
             enh_chrom = 'chr1'
