@@ -432,7 +432,7 @@ def add_manhattan_subparser(subparsers):
                         required=False,
                         type=float,
                         default=-5,
-                        help='specify the cutoff of Significance_scpre. Default is -5 (Significance score is smaller than -5)')
+                        help='specify the cutoff of Significance_score. Default is -5 (Significance score is smaller than -5)')
     
     parser.add_argument('-o', 
                         '--output_folder', 

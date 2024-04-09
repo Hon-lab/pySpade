@@ -169,7 +169,7 @@ def manhattan_plots(FILE_DIR,
             print_ChrNames = np.append(print_ChrNames, i[:1].upper() + i[1:])
 
         ax0.set_xticklabels(print_ChrNames, 
-                            rotation='60',
+                            rotation=60,
                             va='top',
                             ha='center',
                             style='oblique',

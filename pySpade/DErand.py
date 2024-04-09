@@ -252,7 +252,7 @@ def DE_random_cells(sub_df_file,
             logger.info('Finished ' + str(i) + ' genes.')
 
         up_array = -np.array(up_pval_matrix.tocsr()[:, i].todense()).flatten()    
-        if np.sum(np.isfinite(up_array)) <= 3:
+        if np.sum(np.isfinite(up_array)) <= 10:
             continue
         a, b, c = stats.gamma.fit(up_array[np.isfinite(up_array)])
         A[i] = a 
@@ -265,7 +265,7 @@ def DE_random_cells(sub_df_file,
             logger.info('Finished ' + str(i) + ' genes.')
 
         down_array = -np.array(down_pval_matrix.tocsr()[:, i].todense()).flatten()
-        if np.sum(np.isfinite(down_array)) <= 3:
+        if np.sum(np.isfinite(down_array)) <= 10:
             continue
         d, e, f = stats.gamma.fit(down_array[np.isfinite(down_array)])
         D[i] = d
