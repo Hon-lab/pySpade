@@ -27,7 +27,7 @@ $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.1.1
+Version: 0.1.2
 
 optional arguments:
   -h, --help  show this help message and exit
