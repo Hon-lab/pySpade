@@ -22,7 +22,7 @@ pip install pySpade
 
 ## Usage
 
-![Over-view](./pySpade_framework.tif "Overview")
+![Over-view](./pySpade_framework.png "Overview")
 ________
 ```
 $pySpade
