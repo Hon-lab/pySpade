@@ -1,5 +1,5 @@
 # pySpade: Single cell Perturbations - Analysis of Differential gene Expression
-
+![Over-view](./MISC/pySpadeLogo.png "Overview")
 ## Overview
 _________
 `pySpade` performs the whole transcriptome analysis of single cell perturbation datasets. With the direct output of Cellranger, `pySpade` utilizes hypergeomtric test to analyze the whole transcriptome differential expression and generates hits table csv file and Manhattan plots. Currently we support human genome. 
@@ -22,7 +22,7 @@ pip install pySpade
 
 ## Usage
 
-![Over-view](./pySpade_framework.png "Overview")
+![Over-view](./MISC/pySpade_framework.png "Overview")
 ________
 ```
 $pySpade
