@@ -264,6 +264,37 @@ optional arguments:
                         specify an output folder directory.
 ```
 
+## Data Interpretation
+* `exp`
+  * Average expression (cpm): The counts per million read of the query gene. This parameter can determine the expression level.
+  * Median cpm: The cpm of the median cell. Due to the dropout, median cpm for many genes could be 0.
+  * Portion of cell express: The portion of cells that expressed the query gene. 1 means 100%.
+  
+* `fc`
+  * fold change: Perturb cells divide by background cells. 1 means unchange, more than 1 means up-regulation, less than 1 means down-regulation.
+  * log(p-val), t-test: The result of student's t-test comparing perturbed cells and background cells.
+  * Perturb cpm: The expression level (cpm) of perturbation cells.
+  * Background cpm: The expression level (cpm) of background cells.
+  
+* `local` and `global`
+  * Each row is one DE gene in the perturbation region.
+  * gene_names: The differential expressed genes.
+  * region: The perturbation region.
+  * num_cell: The number of cells with sgRNAs targeting that perturbation region.
+  * distance (only in `local`): The distance (base pair) between perturbation region and differential expressed gene.
+  * log(pval)-hypergeom: The raw p-value output from `DEobs`, this does not adjust the background.
+  * fc: fold change calculating from `DEobs`.
+  * Significance_score: The p-value adjusting background from `DErand`. The higher the absolute value, the more significant that DE gene is.
+  * fc_by_rand_dist_cpm: (perturb cells cpm)/(random select background cells cpm). Based on our experience, usualy fc and fc_by_rand_dist_cpm is pretty similar. Either one can be used as reference.
+  * pval-empirical: The proportion of random select background p-value that is smaller than observation p-value.
+  * cpm_perturb: The expression level (cpm) of perturbation cells.
+  * cpm_bg: The expression level (cpm) of background cells.
+
+* `manhattan`
+  * The genes upper part in red are up-regulated genes upon perturbation, while the genes in the lower part in blue are down-regulated genes upon perturbation.
+  * The DE genes showing in the Manhattan plots are filtered based on the parameters running `manhattan`.
+
+
 ## Contacts
 _______
 * Yihan Wang `Yihan.Wang@UTSouthwestern.edu`
