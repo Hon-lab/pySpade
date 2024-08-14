@@ -6,11 +6,11 @@ _________
 
 ## Requirement
 _________
-* Python (3.7 +)
-* Numpy (1.21 +)
-* Pandas (1.3.5 +)
+* Python (= 3.7)
+* Numpy (= 1.21)
+* Pandas (= 1.3.5)
 * Scipy (<= 1.6.2 )
-* Matplotlib(3.5+)
+* Matplotlib(= 3.5)
 
 ## Installation
 ________
