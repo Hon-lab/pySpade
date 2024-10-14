@@ -1,16 +1,17 @@
 ![plot](./MISC/pySpadeLogo.png)
 # pySpade: Single cell Perturbations - Analysis of Differential gene Expression
+
 ## Overview
 _________
 `pySpade` performs the whole transcriptome analysis of single cell perturbation datasets. With the direct output of Cellranger, `pySpade` utilizes hypergeomtric test to analyze the whole transcriptome differential expression and generates hits table csv file and Manhattan plots. Currently we support human genome. 
 
 ## Requirement
 _________
-* Python (= 3.7)
-* Numpy (= 1.21)
-* Pandas (= 1.3.5)
-* Scipy (<= 1.6.2 )
-* Matplotlib(= 3.5)
+* Python (=3.7)
+* Numpy (=1.21)
+* Pandas (=1.3.5)
+* Scipy (<=1.6.2)
+* Matplotlib(=3.5)
 
 ## Installation
 ________
@@ -21,7 +22,6 @@ pip install pySpade
 ```
 
 ## Usage
-
 ![Over-view](./MISC/pySpade_framework.png "Overview")
 ________
 ```
@@ -29,7 +29,7 @@ $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.1.2
+Version: 0.1.3
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -105,8 +105,7 @@ optional arguments:
 	* chr2:1234567-1235067    GENE2
 
 ```
-usage: pySpade fc [-h] -t TRANSCRIPTOME_DIR -d DICT -r REGION -o OUTPUT_FOLDER
-
+usage: pySpade fc [-h] -t TRANSCRIPTOME_DIR -d DICT -r REGION [-b BG] -o OUTPUT_FOLDER
 Check the fold change of perturbed region and individual sgRNA for query region and gene.Input: processed transcriptome
 matrix and sgrna matrix from the process output,sgrna dict file: perturbation region hg38 coordinates and the sgrna
 sequence targeting that region.Region and sgrnas separated by tab, and sgrnas separated by comma
@@ -118,6 +117,7 @@ optional arguments:
   -d DICT, -dict DICT   specify the sgRNA annotation file: perturbation coordinates (hg38) and the sgRNA name.
   -r REGION, --region REGION
                         specify the query regions and their target genes to calculate repression efficiency.
+  -b BG, --bg BG        the background cells for comparason. Default is complementary (all the other cells). Specify the key in sgRNA txt file.
   -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
                         specify output folder directory.
 ```
