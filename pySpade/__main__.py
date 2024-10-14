@@ -52,6 +52,7 @@ def main():
             TRANSCRIPTOME_DIR=args.transcriptome_dir,
             SGRNA_DICT = args.dict,
             TARGET_FILE = args.region,
+            background_cells = args.bg,
             OUTPUT_FOLDER = args.output_folder
         )        
         logger.info('Done.')
@@ -100,7 +101,7 @@ def main():
             OBS_DIR = args.data_dir,
             DISTRI_DIR = args.distr,
             SGRNA_DICT = args.sgrna_dict,
-            OUTPUT_DF = args.output_file
+            OUTPUT = args.output_dir
             )        
         logger.info('Done.')
 
@@ -113,7 +114,7 @@ def main():
             OBS_DIR = args.data_dir,
             SGRNA_DICT = args.sgrna_dict,
             DISTRI_DIR = args.distr,
-            OUTPUT_DF = args.output_file
+            OUTPUT = args.output_dir
             )        
         logger.info('Done.')
     
@@ -128,6 +129,18 @@ def main():
             CUTOFF_FC = args.cutoff_fc,
             CUTOFF_SIG = args.cutoff_significance,
             OUTPUT = args.output_folder
+            )        
+        logger.info('Done.')
+
+    elif (args.command == 'FDRest'):
+        logger.info('Running FDRest command ...')
+        m = importlib.import_module(name=f'pySpade.{args.command}')
+
+        _ = m.FDR_estimation(
+            FILE_DIR = args.file_dir,
+            DISTRI_DIR = args.distr,
+            BIN = args.bins,
+            OUTPUT_DF = args.output_file
             )        
         logger.info('Done.')
 
