@@ -5,17 +5,19 @@ import pandas as pd
 import multiprocessing
 from multiprocessing import Pool
 import scipy.stats as stats
-import scipy.sparse as sp_sparse
+import scipy.sparse as sparse
 import collections
 from collections import defaultdict
 import itertools 
 from importlib import resources
-from scipy import sparse, io
+from scipy import io
 from scipy.sparse import csr_matrix
 import glob
 import re
 import tables
 import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings('ignore')
 
 def get_logger(logger_name, log_file=False):
     """Creates a custom logger."""
@@ -146,10 +148,12 @@ def find_all_sgrna_cells(sgRNA_df, sgRNA_dict):
     return [x for x in set(cell_index)]
 
 def cpm_normalization(trans_df):
-    [g,c] = trans_df.shape
-    cpm_matrix = np.zeros((g,c))
-    cpm_matrix = np.array(trans_df / trans_df.sum(axis = 0) * 1e6)
-    return cpm_matrix
+    [g, c] = trans_df.shape
+    sparse_trans_df = csr_matrix(trans_df)
+    trans_sum = sparse_trans_df.sum(axis=0)  # Sum along the columns
+    cpm_matrix_sparse = sparse_trans_df.multiply(1e6).multiply(1 / trans_sum)
+    return cpm_matrix_sparse
+
 
 def metacelll_normalization(trans_df):
     [g,c] = trans_df.shape
@@ -186,6 +190,30 @@ def sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene,
 def get_num_processes():
     # Adjust this logic as needed based on your requirements
     return min(multiprocessing.cpu_count(), 100)  # Set an upper limit, e.g., 4 processes
+
+def hypergeo_test_sparse(non_zero_array, sgrna_idx, i):
+    # Convert inputs to sparse format if they aren't already
+    non_zero_array = sparse.csr_matrix(non_zero_array) if not sparse.issparse(non_zero_array) else non_zero_array
+    sgrna_idx = sparse.csr_matrix(sgrna_idx) if not sparse.issparse(sgrna_idx) else sgrna_idx
+
+    # Find indices of cells where expression is <= median
+    median = np.median(non_zero_array.data)
+    median_cell_idx = non_zero_array.indices[non_zero_array.data <= median]
+
+    # Find overlap
+    overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx.indices)
+
+    # Calculate fold change
+    other_idx = np.setdiff1d(range(non_zero_array.shape[1]), sgrna_idx.indices)
+    fc = (non_zero_array[:, sgrna_idx.indices].mean() + 0.01) / (non_zero_array[:, other_idx].mean() + 0.01)
+    cpm = non_zero_array[:, sgrna_idx.indices].mean()
+
+    # Hypergeometric test
+    k, M, n, N = len(overlap_cell_idx), non_zero_array.shape[1], len(median_cell_idx), sgrna_idx.nnz
+    pval_up = stats.hypergeom.logcdf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
+    pval_down = stats.hypergeom.logsf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
+
+    return pval_down, pval_up, fc, cpm
 
 def hypergeo_test(non_zero_array, sgrna_idx, i):
     #find indecies of cells in which expression of given gene is
@@ -253,8 +281,8 @@ def perform_DE(sgrna_idx, input_array, idx, num_processes, pval_list_down, pval_
     nonzero_cpm_list = []
     
     with Pool(processes=num_processes) as p:
-        for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test, zip(
-                input_array,
+        for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test_sparse, zip(
+                input_array.tocsr(),
                 itertools.repeat(sgrna_idx),
                 idx)
         ):
@@ -297,7 +325,7 @@ def load_data(data_dir, region):
     up_pval_file   = data_dir + region + '-up_log-pval'
     down_pval_file = data_dir + region + '-down_log-pval'
     cpm_file = data_dir + region + '-cpm'
-    fc_files = glob.glob(data_dir + region + '*-foldchange')
+    fc_files = glob.glob(data_dir + region + '-' + '*-foldchange')
     if len(fc_files) == 1:
         fc_file = fc_files[0]
     else:

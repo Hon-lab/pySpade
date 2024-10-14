@@ -25,6 +25,7 @@ def parse_args(args=sys.argv[1:]):
     add_local_subparser(subparsers)
     add_global_subparser(subparsers)
     add_manhattan_subparser(subparsers)
+    add_FDRest_subparser(subparsers)
 
     if len(sys.argv) > 1:
         if (sys.argv[1] == '--version' or sys.argv[1] == '-v'):
@@ -145,12 +146,22 @@ def add_fc_subparser(subparsers):
                         required=True,
                         type=str,
                         help='specify the query regions and their target genes to calculate repression efficiency.')
-
+    
+    parser.add_argument('-b', 
+                        '--bg', 
+                        dest = 'bg', 
+                        required=False,
+                        type=str,
+                        default='complement',
+                        help='the background cells for comparason. Default is complementary (all the other cells). Specify the key in sgRNA txt file.')
+    
     parser.add_argument('-o', 
                         '--output_folder', 
                         dest='output_folder', 
                         required=True,
                         help='specify output folder directory.')
+    
+    
 
 #DEobs
 def add_DEobs_subparser(subparsers):
@@ -339,18 +350,18 @@ def add_local_subparser(subparsers):
                         help='specify the perturbation coordinates (hg38) and the sgRNA txt file.')
 
     parser.add_argument('-o', 
-                        '--output_file', 
-                        dest='output_file', 
+                        '--output_dir', 
+                        dest='output_dir', 
                         required=True,
                         type=str,
-                        help='specify an output file name incluseing the directory, it has to be in csv format.')
+                        help='specify the output directory.')
 
 #global
 def add_global_subparser(subparsers):
     parser = subparsers.add_parser(
         'global',
         help='perform global hit analysis with observation data and random background',
-        description=('Using the observation p-value and randomization bavckground p-value'
+        description=('Using the observation p-value and randomization background p-value'
                      'to calculate the adjusted p-value based on gamma distribution approximation'
                      'The output is a csv file with all hits information.'))
     
@@ -383,11 +394,11 @@ def add_global_subparser(subparsers):
                         help='specify the random cell file directory. (DErand output folder)')
 
     parser.add_argument('-o', 
-                        '--output_file', 
-                        dest='output_file', 
+                        '--output_dir', 
+                        dest='output_dir', 
                         required=True,
                         type=str,
-                        help='specify an output file name including the directory, it has to be in csv format.')
+                        help='specify the output directory.')
     
 #manhattan
 def add_manhattan_subparser(subparsers):
@@ -440,3 +451,38 @@ def add_manhattan_subparser(subparsers):
                         required=True,
                         type=str,
                         help='specify an output folder directory.')
+
+#FDRest
+def add_FDRest_subparser(subparsers):
+    parser = subparsers.add_parser(
+        'FDRest',
+        help='perform FDR estimation analysis from DErand results.',
+        description=('perform FDR estimation analysis from DErand results.'))
+    
+    parser.add_argument('-f', 
+                        '--file_dir', 
+                        dest='file_dir', 
+                        required=True,
+                        type=str,
+                        help='specify the file directory of "process" function output, the Trans_genome_seq.npy file is required at this step.')
+    
+    parser.add_argument('-t', 
+                        '--distr', 
+                        dest='distr', 
+                        required=True,
+                        type=str,
+                        help='specify the random cell file directory. (DErand output folder)')
+    
+    parser.add_argument('-b', 
+                        '--bins',
+                        dest='bins',
+                        required=True,
+                        type=int,
+                        help='specify the number of cells to do random iteration.')
+    
+    parser.add_argument('-o', 
+                        '--output_file', 
+                        dest='output_file', 
+                        required=True,
+                        type=str,
+                        help='specify an output file name including the directory, it has to be in csv format.')

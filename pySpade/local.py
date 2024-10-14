@@ -21,6 +21,8 @@ import scipy.io as sio
 from collections import defaultdict
 from scipy import sparse
 from scipy.sparse import csr_matrix
+import warnings
+warnings.filterwarnings('ignore')
 
 from pySpade.utils import get_logger, read_annot_df, get_neighbor_genes, get_distance, read_sgrna_dict
 
@@ -30,7 +32,7 @@ def local_analysis(FILE_DIR,
                     OBS_DIR,
                     DISTRI_DIR,
                     SGRNA_DICT,
-                    OUTPUT_DF):
+                    OUTPUT):
     
     logger.info('Loading files.')
     chr_order = [
@@ -162,7 +164,7 @@ def local_analysis(FILE_DIR,
         rand_up_matrix = []
         rand_up_matrix = sp_sparse.vstack(rand_up_file['matrix'])
         iter_num, gene_num = rand_up_matrix.shape
-        emp_pvalup = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pval[up_keep_genes_idx], axis=0) / iter_num
+        emp_pvalup = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pvalup[up_keep_genes_idx], axis=0) / iter_num
         
         #Save to csv file 
         local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
@@ -205,10 +207,7 @@ def local_analysis(FILE_DIR,
         local_gene_df = pd.concat([local_gene_df, local_gene_series], ignore_index=True)
         local_gene_df = local_gene_df.reindex(columns=df_column_list)
 
-    if OUTPUT_DF.endswith('.csv'):
-        local_gene_df[~local_gene_df['gene_names'].isin(duplicate_elements)].to_csv(OUTPUT_DF)
-    else:
-        local_gene_df[~local_gene_df['gene_names'].isin(duplicate_elements)].to_csv(OUTPUT_DF + '.csv')
+    local_gene_df[~local_gene_df['gene_names'].isin(duplicate_elements)].to_csv(OUTPUT + '/unfiltered_local_df.csv')
         
     logger.info('Job is done.')
 

@@ -17,6 +17,8 @@ from collections import defaultdict
 from scipy import sparse, io
 from scipy.sparse import csr_matrix
 from random import shuffle
+import warnings
+warnings.filterwarnings('ignore')
 
 from pySpade.utils import get_logger, read_annot_df, cpm_normalization, metacelll_normalization, read_sgrna_dict, find_all_sgrna_cells, perform_DE, hypergeo_test, hypergeo_test_NC, perform_DE_NC, get_num_processes
 
@@ -43,15 +45,19 @@ def DE_observe_cells(sub_df_file,
     logger.info('Reading transcriptome file')
 
     if (sub_df_file.endswith('pkl')):
-        sub_df = pd.read_pickle(sub_df_file)
+        trans_df = pd.read_pickle(sub_df_file)
     elif (sub_df_file.endswith('h5')):
-        sub_df = pd.read_hdf(sub_df_file, 'df')
-       
+        trans_df = pd.read_hdf(sub_df_file, 'df')
+
+    sub_df = trans_df.astype(pd.SparseDtype('int32', 0))
+    del trans_df
+
     idx = np.arange(0, len(sub_df.index))
 
-    #normalize the matrix.       
+    #normalize the matrix.  
+    logger.info('Start transcriptome normalization.')     
     if (norm == 'cpm'):
-        cpm_matrix = cpm_normalization(sub_df)
+        cpm_matrix =  cpm_normalization(sub_df)
         
     elif (norm == 'metacell'):
         cpm_matrix = metacelll_normalization(sub_df)
@@ -61,13 +67,17 @@ def DE_observe_cells(sub_df_file,
     #load the sgRNA file
     logger.info('Loading sgRNA df.')
     if (sgrna_df.endswith('pkl')):
-        sgrna_df_adj_bool = pd.read_pickle(sgrna_df) > 0 
+        sgrna_df_adj = pd.read_pickle(sgrna_df) > 0 
     elif (sgrna_df.endswith('h5')):
-        sgrna_df_adj_bool = pd.read_hdf(sgrna_df, 'df') > 0
+        sgrna_df_adj = pd.read_hdf(sgrna_df, 'df') > 0
+    
+    sgrna_df_adj_bool = sgrna_df_adj.astype(pd.SparseDtype('int16', 0))
+    del sgrna_df_adj
 
     [g,c] = sub_df.shape
-    assert np.sum(sub_df.columns == sgrna_df_adj_bool.columns) == c #make sure the sequences are the same compare with two df
-    
+    if np.sum(sub_df.columns == sgrna_df_adj_bool.columns) != c:
+        logger.critical('The cell ID sequences of transcriptome df and sgrna df are different.') #make sure the sequences are the same compare with two df
+        sgrna_df_adj_bool = sgrna_df_adj_bool.reindex(columns=sub_df.columns, fill_value=0)
     del sub_df
     #perform hypergeometric test for every single gene in the dataframe
     sgrna_dict  = read_sgrna_dict(sgrnas_file)

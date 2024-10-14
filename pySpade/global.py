@@ -24,8 +24,10 @@ from collections import defaultdict
 from scipy import sparse
 from scipy.sparse import csr_matrix
 from scipy.cluster.hierarchy import dendrogram, linkage
+import warnings
+warnings.filterwarnings('ignore')
 
-from pySpade.utils import get_logger, read_annot_df, read_sgrna_dict, load_data
+from pySpade.utils import get_logger, read_annot_df, read_sgrna_dict, load_data, get_num_processes
 
 logger = get_logger(logger_name=__name__)
 
@@ -33,7 +35,7 @@ def global_analysis(FILE_DIR,
                     OBS_DIR,
                     SGRNA_DICT,
                     DISTRI_DIR,
-                    OUTPUT_DF):
+                    OUTPUT):
     
     logger.info('Loading files.')
     #read the gene sequence file 
@@ -65,7 +67,7 @@ def global_analysis(FILE_DIR,
     #Generate bin-region dictionary 
     bin_dict = defaultdict(list)
     for region in list(sgrna_dict.keys()):
-        fc_files = glob.glob(OBS_DIR + region + '*-foldchange')
+        fc_files = glob.glob(OBS_DIR + region + '-' + '*-foldchange')
         if len(fc_files) == 0:
             logger.critical('Cannot find foldchange file: ' + str(region))
             continue
@@ -90,7 +92,10 @@ def global_analysis(FILE_DIR,
 
         for region in bin_dict[b]:
             pval_list_up, pval_list_down, cpm, fc, cell_num = load_data(OBS_DIR, region)
-            fc_cpm = (cpm + 0.01)/(cpm_mean + 0.01)
+            pval_list_up = pval_list_up[:len(cpm_mean)]
+            pval_list_down = pval_list_down[:len(cpm_mean)]
+            cpm = cpm[:len(cpm_mean)]
+            fc_cpm = (cpm + 0.01)/(cpm_mean + 0.01) #modify back!!
 
             #preprocess pval list 
             pval_list_up[np.argwhere(pval_list_up == 0)] = 1
@@ -117,29 +122,42 @@ def global_analysis(FILE_DIR,
 
             #Calculate p-value adj for gamma distribution
             down_padj_list = []
-            for i in down_keep_genes_idx:
-                down_padj = scipy.stats.gamma.logsf(-pval_list_down[i], down_A[i], down_B[i], down_C[i])
-                down_padj_list.append(down_padj)
+            num_process = get_num_processes()
+            with Pool(processes=num_process) as p:
+                for down_adj in p.starmap(scipy.stats.gamma.logsf, zip(
+                    -pval_list_down[down_keep_genes_idx], 
+                    down_A[down_keep_genes_idx], 
+                    down_B[down_keep_genes_idx], 
+                    down_C[down_keep_genes_idx])
+                ):
+                    down_padj_list.append(down_adj)
             down_hit_fc_list = fc_cpm[down_keep_genes_idx]
             down_cpm = cpm[down_keep_genes_idx]
             down_cpm_bg = cpm_mean[down_keep_genes_idx]
 
             up_padj_list = []
-            for i in up_keep_genes_idx:
-                up_padj = scipy.stats.gamma.logsf(-pval_list_up[i], up_A[i], up_B[i], up_C[i])
-                up_padj_list.append(up_padj)
+            with Pool(processes=num_process) as p:
+                for up_adj in p.starmap(scipy.stats.gamma.logsf, zip(
+                    -pval_list_up[up_keep_genes_idx], 
+                    up_A[up_keep_genes_idx], 
+                    up_B[up_keep_genes_idx], 
+                    up_C[up_keep_genes_idx])
+                ):
+                    up_padj_list.append(up_adj)
             up_hit_fc_list = fc_cpm[up_keep_genes_idx]
             up_cpm = cpm[up_keep_genes_idx]
             up_cpm_bg = cpm_mean[up_keep_genes_idx]
 
             #Load background distribution and calculate emprical p-value
             rand_down_file = sio.loadmat(DISTRI_DIR + '%s-down_log-pval'%(str(b)))
+            #rand_down_file = sio.loadmat(DISTRI_DIR + 'A-down_log-pval-%s'%(str(b)))
             rand_down_matrix = []
             rand_down_matrix = sp_sparse.vstack(rand_down_file['matrix'])
             iter_num, gene_num = rand_down_matrix.shape
             emp_pval_down = np.sum(np.asarray(rand_down_matrix.tocsr()[:, down_keep_genes_idx].todense()) < pval_list_down[down_keep_genes_idx], axis=0) / iter_num
 
             rand_up_file = sio.loadmat(DISTRI_DIR + '%s-up_log-pval'%(str(b)))
+            #rand_up_file = sio.loadmat(DISTRI_DIR + 'A-up_log-pval-%s'%(str(b)))
             rand_up_matrix = []
             rand_up_matrix = sp_sparse.vstack(rand_up_file['matrix'])
             iter_num, gene_num = rand_up_matrix.shape
@@ -181,11 +199,9 @@ def global_analysis(FILE_DIR,
     
     global_hits_df = global_hits_df.reindex(columns=df_column_list)
     rem_dup_global_hits_df = global_hits_df[~global_hits_df['gene_names'].isin(duplicate_elements)]
-
-    if OUTPUT_DF.endswith('.csv'):
-        rem_dup_global_hits_df[rem_dup_global_hits_df['Significance_score'] < pval_cutoff].to_csv(OUTPUT_DF)
-    else:
-        rem_dup_global_hits_df[rem_dup_global_hits_df['Significance_score'] < pval_cutoff].to_csv(OUTPUT_DF + '.csv')
+    
+    #save as csv
+    rem_dup_global_hits_df[rem_dup_global_hits_df['Significance_score'] < pval_cutoff].to_csv(OUTPUT + '/unfiltered_global_df.csv')
 
     logger.info('Job is done.')
     

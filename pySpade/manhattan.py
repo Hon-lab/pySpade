@@ -63,7 +63,7 @@ def manhattan_plots(FILE_DIR,
                       &((global_df['fc_by_rand_dist_cpm'] > (1+CUTOFF_FC)) | (global_df['fc_by_rand_dist_cpm'] < (1-CUTOFF_FC)))\
                       &(global_df['Significance_score'] < CUTOFF_SIG)\
                       &(global_df['pval-empirical'] < 0.001)
-                      &(global_df['log(pval)-hypergeom'] < -2)]
+                      &(global_df['log(pval)-hypergeom'] < -3)]
     #save filter df 
     express_df.to_csv(OUTPUT + '/filtered_df.csv')
     logger.info('filtered df size: ' + str(express_df.shape))

@@ -18,6 +18,8 @@ import scipy.sparse as sp_sparse
 from collections import defaultdict
 from scipy import sparse, io
 from scipy.sparse import csr_matrix
+import warnings
+warnings.filterwarnings('ignore')
 
 from importlib import resources
 from pySpade.utils import get_logger

@@ -19,6 +19,8 @@ from collections import defaultdict
 from scipy import sparse, io
 from scipy.sparse import csr_matrix
 from random import shuffle
+import warnings
+warnings.filterwarnings('ignore')
 
 from pySpade.utils import get_logger, read_annot_df, read_sgrna_dict, cpm_normalization, metacelll_normalization, perform_DE, hypergeo_test, hypergeo_test_NC, perform_DE_NC, get_num_processes, find_all_sgrna_cells
 
@@ -51,17 +53,21 @@ def DE_random_cells(sub_df_file,
     #read the 10X hdf5 file
     logger.info('Reading transcriptome file.')
     if (sub_df_file.endswith('pkl')):
-        sub_df = pd.read_pickle(sub_df_file)
+        trans_df = pd.read_pickle(sub_df_file)
     elif (sub_df_file.endswith('h5')):
-        sub_df = pd.read_hdf(sub_df_file, 'df')
+        trans_df = pd.read_hdf(sub_df_file, 'df')
     
+    #convert trans_df to sparse
+    sub_df = trans_df.astype(pd.SparseDtype('int32', 0))
+    del trans_df
+
     #read the plotting annotation
     annot_df = read_annot_df()
     idx = np.arange(0, len(sub_df.index))
   
     #normalize the matrix.
     if (norm == 'cpm'):
-        cpm_matrix = cpm_normalization(sub_df)
+        cpm_matrix =  cpm_normalization(sub_df)
         
     elif (norm == 'metacell'):
         cpm_matrix = metacelll_normalization(sub_df)
@@ -69,9 +75,12 @@ def DE_random_cells(sub_df_file,
     logger.info('Finished transcriptome normalization.')
     
     if (sgrna_df.endswith('pkl')):
-        sgrna_df_adj_bool = pd.read_pickle(sgrna_df) > 0 
+        sgrna_df_adj = pd.read_pickle(sgrna_df) > 0 
     elif (sgrna_df.endswith('h5')):
-        sgrna_df_adj_bool = pd.read_hdf(sgrna_df, 'df') > 0
+        sgrna_df_adj = pd.read_hdf(sgrna_df, 'df') > 0
+
+    sgrna_df_adj_bool = sgrna_df_adj.astype(pd.SparseDtype('int16', 0))
+    del sgrna_df_adj
 
     [g,c] = sgrna_df_adj_bool.shape
     assert np.sum(sub_df.columns == sgrna_df_adj_bool.columns) == c

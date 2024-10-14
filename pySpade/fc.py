@@ -27,7 +27,8 @@ logger = get_logger(logger_name=__name__)
 def Calculate_fc(TRANSCRIPTOME_DIR, 
                  SGRNA_DICT, 
                  TARGET_FILE, 
-                 OUTPUT_FOLDER):
+                 OUTPUT_FOLDER,
+                 background_cells='complement'):
 
 
     TRANSCRIPTOME_FILE = glob.glob(TRANSCRIPTOME_DIR + 'Singlet_sub_df.*')
@@ -84,91 +85,195 @@ def Calculate_fc(TRANSCRIPTOME_DIR,
         All_cpm_array.append(cpm_array)
 
     #calculate repression efficiency for single sgRNA
-    All_region_list = []
-    All_gene_list = []
-    All_FC_list = []
-    All_sgRNA = []
-    All_num_cell = []
-    All_pert_cpm_list = []
-    All_bg_cpm_list = []
-    region_fc_list = []
-    region_cell_list = []
-    region_pval_list = []
-    region_pert_cpm_list = []
-    region_bg_cpm_list = []
-    All_pval_list = []
-    for i , target_gene, non_zero_array in zip(query_region_list, query_gene_list, All_cpm_array):
-        logger.info(f'Calculate gene: {target_gene} in region: {i}')
+    if background_cells != 'complement':
+        if background_cells in list(sgrna_dict.keys()) == False:
+            logger.critical('Background region is not in sgRNA dictionary text file. Please fix the dictionary file or use default parameter. Job cancels.')
+            sys.exit(0)
+
+        All_region_list = []
+        All_gene_list = []
+        All_FC_list = []
+        All_sgRNA = []
+        All_num_cell = []
+        All_pert_cpm_list = []
+        All_bg_cpm_list = []
+        region_fc_list = []
+        region_cell_list = []
+        region_pval_list = []
+        region_pert_cpm_list = []
+        region_bg_cpm_list = []
+        All_pval_list = []
+
+        #ensure that all the NC sgrnas are in the sgRNA df 
+        missing_NC_list = list(set(sgrna_dict[background_cells]) - set(sgrna_df_bool.index))
+        remain_NC_list = list(set(sgrna_dict[background_cells]) - (set(missing_NC_list)))
+        logger.info(str(len(remain_NC_list)) + ' sgRNAs in background list.')
+        sgrna_dict.update({background_cells:remain_NC_list})
         
-        #Find if any sgRNA is missing from the sgRNA df
-        missing_sgrna_list = list(set(sgrna_dict[i]) - set(sgrna_df_bool.index))
-        if len(missing_sgrna_list) == len(sgrna_dict[i]):
-            logger.info('Missing all the sgRNA in this region.')
-            continue
-        if len(missing_sgrna_list) > 0:
-            logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna.')
-            for j in missing_sgrna_list:
-                logger.info('Missing sgrna: ' + str(j))
+        NC_idx = find_all_sgrna_cells(sgrna_df_bool, sgrna_dict[background_cells])
+        if len(NC_idx) == 0:
+            logger.critical('No cell as background. Job cancels.')
+            sys.exit(0)
+        logger.info(str(len(NC_idx)) + ' cells as background for differential expression analysis.')
 
-        #remove the missing sgrna and continue DE analysis 
-        if len(missing_sgrna_list) > 0:
-            remain_sgrna_list = list(set(sgrna_dict[i]) - (set(missing_sgrna_list)))
-            sgrna_dict.update({i:remain_sgrna_list})
+        for i , target_gene, non_zero_array in zip(query_region_list, query_gene_list, All_cpm_array):
+            logger.info(f'Calculate gene: {target_gene} in region: {i}')
+            
+            #Find if any sgRNA is missing from the sgRNA df
+            missing_sgrna_list = list(set(sgrna_dict[i]) - set(sgrna_df_bool.index))
+            if len(missing_sgrna_list) == len(sgrna_dict[i]):
+                logger.info('Missing all the sgRNA in this region.')
+                continue
+            if len(missing_sgrna_list) > 0:
+                logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna.')
+                for j in missing_sgrna_list:
+                    logger.info('Missing sgrna: ' + str(j))
 
-        sgrna_idx = find_all_sgrna_cells(sgrna_df_bool, sgrna_dict[i])
-        other_idx = np.setxor1d(sgrna_idx, range(len(non_zero_array)))
-        region_cell_num = len(sgrna_idx)
-        region_cell_list.append(region_cell_num)
+            #remove the missing sgrna and continue DE analysis 
+            if len(missing_sgrna_list) > 0:
+                remain_sgrna_list = list(set(sgrna_dict[i]) - (set(missing_sgrna_list)))
+                sgrna_dict.update({i:remain_sgrna_list})
 
-        sgrna_cells_expression = non_zero_array[sgrna_idx]
-        other_cells_expression = non_zero_array[other_idx]
-        fc = (np.mean(sgrna_cells_expression) + 0.01) / (np.mean(other_cells_expression) + 0.01)
-        pval = stats.ttest_ind(sgrna_cells_expression, other_cells_expression, equal_var=False).pvalue
-        region_fc_list.append(fc)
-        region_pval_list.append(pval)
-        region_pert_cpm_list.append(str(np.mean(sgrna_cells_expression)))
-        region_bg_cpm_list.append(str(np.mean(other_cells_expression)))
+            sgrna_idx = find_all_sgrna_cells(sgrna_df_bool, sgrna_dict[i])
+            region_cell_num = len(sgrna_idx)
+            region_cell_list.append(region_cell_num)
 
-        #Box plot for each region and the query gene 
-        save_name = i.replace(':', '_')
-        box_plot_file = OUTPUT_FOLDER + 'Box_plot-' + save_name + '-' + target_gene + '-10perc.tiff'
-        sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene, i, box_plot_file)
+            sgrna_cells_expression = non_zero_array[sgrna_idx]
+            other_cells_expression = non_zero_array[NC_idx]
+            fc = (np.mean(sgrna_cells_expression) + 0.01) / (np.mean(other_cells_expression) + 0.01)
+            pval = stats.ttest_ind(sgrna_cells_expression, other_cells_expression, equal_var=False).pvalue
+            region_fc_list.append(fc)
+            region_pval_list.append(pval)
+            region_pert_cpm_list.append(str(np.mean(sgrna_cells_expression)))
+            region_bg_cpm_list.append(str(np.mean(other_cells_expression)))
 
-        sgrna_seq = []
-        fc_list = []
-        num_cell_list = []
-        pert_cpm_list = []
-        bg_cpm_list = []
-        pval_list = []
-        #Now we calculate fold change for individual sgrna in the perturbation
-        for sgrna in sgrna_dict[i]:
-            try:
-                sgrna_idx = find_single_sgrna_cells(sgrna_df_bool, sgrna)
-                unperturb_idx = np.setxor1d(sgrna_idx, range(len(non_zero_array)))
-                perturb_cpm = np.mean(non_zero_array[sgrna_idx]) 
-                bg_cpm = np.mean(non_zero_array[unperturb_idx])
-                fc = (np.mean(non_zero_array[sgrna_idx]) + 0.01) / (np.mean(non_zero_array[unperturb_idx]) + 0.01)
-                pval = stats.ttest_ind(non_zero_array[sgrna_idx], non_zero_array[unperturb_idx], equal_var=False).pvalue
-                num_cell = str(len(sgrna_idx))
-            except:
-                fc = 1
-                num_cell = '0'
+            #Box plot for each region and the query gene 
+            save_name = i.replace(':', '_')
+            box_plot_file = OUTPUT_FOLDER + 'Box_plot-' + save_name + '-' + target_gene + '-10perc.tiff'
+            sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene, i, box_plot_file)
 
-            pert_cpm_list.append(perturb_cpm) 
-            bg_cpm_list.append(bg_cpm)   
-            fc_list.append(fc)
-            pval_list.append(pval)
-            sgrna_seq.append(sgrna)
-            num_cell_list.append(num_cell)
+            sgrna_seq = []
+            fc_list = []
+            num_cell_list = []
+            pert_cpm_list = []
+            bg_cpm_list = []
+            pval_list = []
+            #Now we calculate fold change for individual sgrna in the perturbation
+            for sgrna in sgrna_dict[i]:
+                try:
+                    sgrna_idx = find_single_sgrna_cells(sgrna_df_bool, sgrna)
+                    unperturb_idx = NC_idx
+                    perturb_cpm = np.mean(non_zero_array[sgrna_idx]) 
+                    bg_cpm = np.mean(non_zero_array[unperturb_idx])
+                    fc = (np.mean(non_zero_array[sgrna_idx]) + 0.01) / (np.mean(non_zero_array[unperturb_idx]) + 0.01)
+                    pval = stats.ttest_ind(non_zero_array[sgrna_idx], non_zero_array[unperturb_idx], equal_var=False).pvalue
+                    num_cell = str(len(sgrna_idx))
+                except:
+                    fc = 1
+                    num_cell = '0'
 
-        All_region_list.append(i)
-        All_gene_list.append(target_gene)
-        All_FC_list.append(fc_list)
-        All_sgRNA.append(sgrna_seq)
-        All_num_cell.append(num_cell_list)
-        All_pval_list.append(pval_list)
-        All_pert_cpm_list.append(pert_cpm_list)
-        All_bg_cpm_list.append(bg_cpm_list)
+                pert_cpm_list.append(perturb_cpm) 
+                bg_cpm_list.append(bg_cpm)   
+                fc_list.append(fc)
+                pval_list.append(pval)
+                sgrna_seq.append(sgrna)
+                num_cell_list.append(num_cell)
+
+            All_region_list.append(i)
+            All_gene_list.append(target_gene)
+            All_FC_list.append(fc_list)
+            All_sgRNA.append(sgrna_seq)
+            All_num_cell.append(num_cell_list)
+            All_pval_list.append(pval_list)
+            All_pert_cpm_list.append(pert_cpm_list)
+            All_bg_cpm_list.append(bg_cpm_list)
+
+    else: 
+        All_region_list = []
+        All_gene_list = []
+        All_FC_list = []
+        All_sgRNA = []
+        All_num_cell = []
+        All_pert_cpm_list = []
+        All_bg_cpm_list = []
+        region_fc_list = []
+        region_cell_list = []
+        region_pval_list = []
+        region_pert_cpm_list = []
+        region_bg_cpm_list = []
+        All_pval_list = []
+        for i , target_gene, non_zero_array in zip(query_region_list, query_gene_list, All_cpm_array):
+            logger.info(f'Calculate gene: {target_gene} in region: {i}')
+            
+            #Find if any sgRNA is missing from the sgRNA df
+            missing_sgrna_list = list(set(sgrna_dict[i]) - set(sgrna_df_bool.index))
+            if len(missing_sgrna_list) == len(sgrna_dict[i]):
+                logger.info('Missing all the sgRNA in this region.')
+                continue
+            if len(missing_sgrna_list) > 0:
+                logger.info('Missing ' + str(len(missing_sgrna_list)) + ' sgrna.')
+                for j in missing_sgrna_list:
+                    logger.info('Missing sgrna: ' + str(j))
+
+            #remove the missing sgrna and continue DE analysis 
+            if len(missing_sgrna_list) > 0:
+                remain_sgrna_list = list(set(sgrna_dict[i]) - (set(missing_sgrna_list)))
+                sgrna_dict.update({i:remain_sgrna_list})
+
+            sgrna_idx = find_all_sgrna_cells(sgrna_df_bool, sgrna_dict[i])
+            other_idx = np.setxor1d(sgrna_idx, range(len(non_zero_array)))
+            region_cell_num = len(sgrna_idx)
+            region_cell_list.append(region_cell_num)
+
+            sgrna_cells_expression = non_zero_array[sgrna_idx]
+            other_cells_expression = non_zero_array[other_idx]
+            fc = (np.mean(sgrna_cells_expression) + 0.01) / (np.mean(other_cells_expression) + 0.01)
+            pval = stats.ttest_ind(sgrna_cells_expression, other_cells_expression, equal_var=False).pvalue
+            region_fc_list.append(fc)
+            region_pval_list.append(pval)
+            region_pert_cpm_list.append(str(np.mean(sgrna_cells_expression)))
+            region_bg_cpm_list.append(str(np.mean(other_cells_expression)))
+
+            #Box plot for each region and the query gene 
+            save_name = i.replace(':', '_')
+            box_plot_file = OUTPUT_FOLDER + 'Box_plot-' + save_name + '-' + target_gene + '-10perc.tiff'
+            sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene, i, box_plot_file)
+
+            sgrna_seq = []
+            fc_list = []
+            num_cell_list = []
+            pert_cpm_list = []
+            bg_cpm_list = []
+            pval_list = []
+            #Now we calculate fold change for individual sgrna in the perturbation
+            for sgrna in sgrna_dict[i]:
+                try:
+                    sgrna_idx = find_single_sgrna_cells(sgrna_df_bool, sgrna)
+                    unperturb_idx = np.setxor1d(sgrna_idx, range(len(non_zero_array)))
+                    perturb_cpm = np.mean(non_zero_array[sgrna_idx]) 
+                    bg_cpm = np.mean(non_zero_array[unperturb_idx])
+                    fc = (np.mean(non_zero_array[sgrna_idx]) + 0.01) / (np.mean(non_zero_array[unperturb_idx]) + 0.01)
+                    pval = stats.ttest_ind(non_zero_array[sgrna_idx], non_zero_array[unperturb_idx], equal_var=False).pvalue
+                    num_cell = str(len(sgrna_idx))
+                except:
+                    fc = 1
+                    num_cell = '0'
+
+                pert_cpm_list.append(perturb_cpm) 
+                bg_cpm_list.append(bg_cpm)   
+                fc_list.append(fc)
+                pval_list.append(pval)
+                sgrna_seq.append(sgrna)
+                num_cell_list.append(num_cell)
+
+            All_region_list.append(i)
+            All_gene_list.append(target_gene)
+            All_FC_list.append(fc_list)
+            All_sgRNA.append(sgrna_seq)
+            All_num_cell.append(num_cell_list)
+            All_pval_list.append(pval_list)
+            All_pert_cpm_list.append(pert_cpm_list)
+            All_bg_cpm_list.append(bg_cpm_list)
 
     #write to output file
     output_file=open(OUTPUT_FOLDER + 'fold_change.txt', 'w')

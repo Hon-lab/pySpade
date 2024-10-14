@@ -21,6 +21,8 @@ from multiprocessing import Pool
 from collections import defaultdict
 from scipy import sparse, io
 from scipy.sparse import csr_matrix
+import warnings
+warnings.filterwarnings('ignore')
 from pySpade.utils import get_logger, get_matrix_from_h5, process_feature_df, turn_point, filter_umi, get_sgrna_per_cell
 
 logger = get_logger(logger_name=__name__)
@@ -136,33 +138,41 @@ def process_singlet(WORK_DIR,
         elif (SGRNA.endswith('csv')) | (SGRNA.endswith('csv.gz')):
             sgRNA_df = pd.read_csv(SGRNA, index_col=0)
 
-        #process transcriptome file 
-        CountMatrix = collections.namedtuple('CountMatrix', ['feature_ref', 'barcodes', 'matrix'])
-        filtered_matrix_h5 = WORK_DIR + 'filtered_feature_bc_matrix.h5'
-        filtered_feature_bc_matrix = get_matrix_from_h5(filtered_matrix_h5)
-        sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
-        del filtered_feature_bc_matrix
+        #process barcodes
+        barcode_df = pd.read_csv(WORK_DIR + 'filtered_feature_bc_matrix/barcodes.tsv.gz', names=['bc'])
+        barcode = list(barcode_df['bc'])
 
-        new_columns = set(sgRNA_df.columns).intersection(set(sub_df.columns))
+        new_columns = set(sgRNA_df.columns).intersection(set(barcode))
         CorrSgrnaPerCell_out, sgrna_mean , sgrna_median = get_sgrna_per_cell(sgRNA_df[new_columns], return_mean=True, return_median=True)
         logger.info('Cell number: ' + str(len(new_columns)))
         logger.info('sgRNA mean: ' + str(sgrna_mean))
         logger.info('sgRNA median: ' + str(sgrna_median))
 
+        if (COMP=='True'):
+            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=3, complib='zlib')
+            del sgRNA_df
+
+        elif (COMP=='False'):
+            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w')
+            del sgRNA_df
+
+        #process transcriptome 
+        CountMatrix = collections.namedtuple('CountMatrix', ['feature_ref', 'barcodes', 'matrix'])
+        filtered_matrix_h5 = WORK_DIR + 'filtered_feature_bc_matrix.h5'
+        filtered_feature_bc_matrix = get_matrix_from_h5(filtered_matrix_h5)
+        #sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
+        sub_df = pd.DataFrame.sparse.from_spmatrix(data=filtered_feature_bc_matrix.matrix, columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
+        del filtered_feature_bc_matrix
 
         #write output matrix
         np.save(OUTPUT_DIR + 'Trans_genome_seq', sub_df.index)
         np.save(OUTPUT_DIR + 'Perc_cell_expr', (np.sum(sub_df[new_columns] > 0, axis=1) / len(new_columns) *100).values)
         
         if (COMP=='True'):
-            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=9, complib='zlib')
-            del sgRNA_df    
-            sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w', complevel=9, complib='zlib')
+            sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w', complevel=3, complib='zlib')
             
         elif (COMP=='False'):
-            sgRNA_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w')
-            del sgRNA_df
-            sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w')    
+            sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w')
 
         logger.info('Job is done.')
 
