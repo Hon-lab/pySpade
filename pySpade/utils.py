@@ -57,7 +57,7 @@ def get_matrix_from_h5(filename):
         indices = getattr(mat_group, 'indices').read()
         indptr = getattr(mat_group, 'indptr').read()
         shape = getattr(mat_group, 'shape').read()
-        matrix = sp_sparse.csc_matrix((data, indices, indptr), shape=shape)
+        matrix = sparse.csc_matrix((data, indices, indptr), shape=shape)
          
         feature_ref = {}
         feature_group = f.get_node(mat_group, 'features')
@@ -194,25 +194,24 @@ def get_num_processes():
 def hypergeo_test_sparse(non_zero_array, sgrna_idx, i):
     # Convert inputs to sparse format if they aren't already
     non_zero_array = sparse.csr_matrix(non_zero_array) if not sparse.issparse(non_zero_array) else non_zero_array
-    sgrna_idx = sparse.csr_matrix(sgrna_idx) if not sparse.issparse(sgrna_idx) else sgrna_idx
 
     # Find indices of cells where expression is <= median
-    median = np.median(non_zero_array.data)
-    median_cell_idx = non_zero_array.indices[non_zero_array.data <= median]
+    median = np.median(non_zero_array.toarray())
+    median_cell_idx = np.argwhere((non_zero_array.toarray() <= median)[0])
 
     # Find overlap
-    overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx.indices)
+    overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx)
 
     # Calculate fold change
-    other_idx = np.setdiff1d(range(non_zero_array.shape[1]), sgrna_idx.indices)
-    fc = (non_zero_array[:, sgrna_idx.indices].mean() + 0.01) / (non_zero_array[:, other_idx].mean() + 0.01)
-    cpm = non_zero_array[:, sgrna_idx.indices].mean()
+    other_idx = np.setdiff1d(range(non_zero_array.shape[1]), sgrna_idx)
+    fc = (non_zero_array[:, sgrna_idx].mean() + 0.01) / (non_zero_array[:, other_idx].mean() + 0.01)
+    cpm = non_zero_array[:, sgrna_idx].mean()
 
     # Hypergeometric test
-    k, M, n, N = len(overlap_cell_idx), non_zero_array.shape[1], len(median_cell_idx), sgrna_idx.nnz
+    k, M, n, N = len(overlap_cell_idx), non_zero_array.shape[1], len(median_cell_idx), len(sgrna_idx)
     pval_up = stats.hypergeom.logcdf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
     pval_down = stats.hypergeom.logsf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
-
+    
     return pval_down, pval_up, fc, cpm
 
 def hypergeo_test(non_zero_array, sgrna_idx, i):

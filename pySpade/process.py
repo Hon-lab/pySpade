@@ -160,8 +160,8 @@ def process_singlet(WORK_DIR,
         CountMatrix = collections.namedtuple('CountMatrix', ['feature_ref', 'barcodes', 'matrix'])
         filtered_matrix_h5 = WORK_DIR + 'filtered_feature_bc_matrix.h5'
         filtered_feature_bc_matrix = get_matrix_from_h5(filtered_matrix_h5)
-        #sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
-        sub_df = pd.DataFrame.sparse.from_spmatrix(data=filtered_feature_bc_matrix.matrix, columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
+        sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
+        #sub_df = pd.DataFrame.sparse.from_spmatrix(data=filtered_feature_bc_matrix.matrix, columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
         del filtered_feature_bc_matrix
 
         #write output matrix
