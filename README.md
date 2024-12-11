@@ -48,7 +48,7 @@ functions:
 ```
 
 * `process` : Process transcriptome output and sgrna output to remove experimental doublets and sgrna outlier cells.
-    * Input 1: Transcriptome matrix is from Cellranger output (outs folder).
+    * Input 1: Transcriptome matrix path from Cellranger output (The folder contains filtered_feature_bc_matrix.h5 file).
     * Input 2: sgrna matrix column: cell barcodes consistent with transcriptome matrix, rows: sgrna sequence or sgrna names. The sgrna matrix is already filtered out potential noise sgrna. Boolean values of the sgrna matrix are used for analysis. Acceptable format: pkl or csv.
     * The final output format is h5 file. The final output can be compressed to save disk space, but it may take more time to write the final output file.
 
