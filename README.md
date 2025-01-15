@@ -1,4 +1,3 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14532303.svg)](https://doi.org/10.5281/zenodo.14532303)
 ![plot](./MISC/pySpadeLogo.png)
 # pySpade: Single cell Perturbations - Analysis of Differential gene Expression
 
@@ -30,7 +29,7 @@ $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.1.4
+Version: 0.1.5
 
 optional arguments:
   -h, --help  show this help message and exit
