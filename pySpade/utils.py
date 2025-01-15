@@ -121,6 +121,7 @@ def read_sgrna_dict(SGRNA_FILE):
 
 def read_annot_df() -> pd.DataFrame:
     with resources.path('pySpade', 'plot_annotation.txt') as df:
+#    with resources.path('pySpade', 'plot_annotation_RE.txt') as df:
         annot_df = pd.read_csv(df,
                    header=None,
                    sep='\t',
@@ -189,7 +190,7 @@ def sc_exp_box_plot(sgrna_cells_expression, other_cells_expression, target_gene,
 
 def get_num_processes():
     # Adjust this logic as needed based on your requirements
-    return min(multiprocessing.cpu_count(), 100)  # Set an upper limit, e.g., 4 processes
+    return (multiprocessing.cpu_count())  # Set an upper limit, e.g., 4 processes
 
 def hypergeo_test_sparse(non_zero_array, sgrna_idx, i):
     # Convert inputs to sparse format if they aren't already
@@ -245,10 +246,30 @@ def hypergeo_test(non_zero_array, sgrna_idx, i):
     
     return pval_down, pval_up, fc, cpm
 
+def hypergeo_test_NC_sparse(non_zero_array, sgrna_idx, NC_idx, i):
+
+    non_zero_array = sparse.csr_matrix(non_zero_array) if not sparse.issparse(non_zero_array) else non_zero_array
+    #find indecies of cells in which expression of given gene is
+    #equal or less than the median of this gene in the whole population
+    median = np.median(non_zero_array[:, NC_idx].toarray())
+    median_cell_idx = np.argwhere((non_zero_array.toarray() <= median)[0])
+
+    #find the same cells subset in the cells with a given sgRNA
+    overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx)
+    fc = (non_zero_array[:, sgrna_idx].mean() + 0.01) / (non_zero_array[:, NC_idx].mean() + 0.01)
+    cpm = non_zero_array[:, sgrna_idx].mean()
+    
+    #perform hypergeometric test, get the upper tail
+    k, M, n, N = len(overlap_cell_idx), non_zero_array.shape[1], len(median_cell_idx), len(sgrna_idx)
+    pval_up = stats.hypergeom.logcdf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
+    pval_down = stats.hypergeom.logsf(k, M, n, N).item() if all([k, M, n, N]) else float('nan')
+    
+    return pval_down, pval_up, fc, cpm
+
 def hypergeo_test_NC(non_zero_array, sgrna_idx, NC_idx, i):
     #find indecies of cells in which expression of given gene is
     #equal or less than the median of this gene in the whole population
-    median_cell_idx  = np.argwhere(non_zero_array <= np.median(non_zero_array))
+    median_cell_idx  = np.argwhere(non_zero_array <= np.median(non_zero_array[NC_idx]))
 
     #find the same cells subset in the cells with a given sgRNA
     overlap_cell_idx = np.intersect1d(median_cell_idx, sgrna_idx)
@@ -303,8 +324,8 @@ def perform_DE_NC(sgrna_idx, NC_idx, input_array, idx, num_processes, pval_list_
     nonzero_cpm_list = []
     
     with Pool(processes=num_processes) as p:
-        for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test_NC, zip(
-                input_array,
+        for pval_down, pval_up, fc, cpm in p.starmap(hypergeo_test_NC_sparse, zip(
+                input_array.tocsr(),
                 itertools.repeat(sgrna_idx),
                 itertools.repeat(NC_idx),
                 idx)

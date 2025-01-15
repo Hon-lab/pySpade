@@ -90,6 +90,10 @@ def local_analysis(FILE_DIR,
             cell_num = int(chosen_num)
             fc_file = OBS_DIR + region + '-' + str(chosen_num) + '-foldchange'
         
+        if cell_num < 20:
+            logger.info('Not enough cells (' + str(cell_num) + ') for analysis.')
+            continue
+
         fc = sio.loadmat(fc_file)['matrix'][0]  #compare to all the other cells as background
 
         #get the gene idx within local analysis window and filter with fold change 
@@ -113,13 +117,19 @@ def local_analysis(FILE_DIR,
         down_idx = np.array(list(set(down_i).intersection(set(np.where(pval < pval_cutoff)[0]))))
         up_i = np.where(np.array(fc) > (1 - fc_cutoff))[0]
         up_idx = np.array(list(set(up_i).intersection(set(np.where(pvalup < pval_cutoff)[0]))))
+        if (len(down_idx) == 0) & (len(up_idx) == 0):
+            logger.info(f'No DE genes within local analysis windown. ')
+            continue
         #Remove the duplicate value of gene index, return a list with unique gene names. 
         #Unique_elements is sorted by the gene names, unique_indices return the original index from gene_seq.
         unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
-        down_keep_genes = list((set(annot_df['gene_names']).intersection(set(gene_seq[down_idx]))).intersection(set(local_gene)))
-        down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
-        up_keep_genes = list((set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))).intersection(set(local_gene)))
-        up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
+        if len(down_idx) != 0:
+            down_keep_genes = list((set(annot_df['gene_names']).intersection(set(gene_seq[down_idx]))).intersection(set(local_gene)))
+            down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
+        
+        if len(up_idx) != 0:
+            up_keep_genes = list((set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))).intersection(set(local_gene)))
+            up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
 
         if (len(down_keep_genes_idx) == 0) & (len(up_keep_genes_idx) == 0):
             logger.info(f'No DE genes within local analysis windown. ')
@@ -156,13 +166,13 @@ def local_analysis(FILE_DIR,
         #Load pvalue matrix and calculate empirical p-value
         rand_down_file = sio.loadmat(DISTRI_DIR + '%s-down_log-pval'%(str(chosen_dist)))
         rand_down_matrix = []
-        rand_down_matrix = sp_sparse.vstack(rand_down_file['matrix'])
+        rand_down_matrix = sp_sparse.vstack([rand_down_file['matrix']])
         iter_num, gene_num = rand_down_matrix.shape
         emp_pval = np.sum(np.asarray(rand_down_matrix.tocsr()[:, down_keep_genes_idx].todense()) < pval[down_keep_genes_idx], axis=0) / iter_num
         
         rand_up_file = sio.loadmat(DISTRI_DIR + '%s-up_log-pval'%(str(chosen_dist)))
         rand_up_matrix = []
-        rand_up_matrix = sp_sparse.vstack(rand_up_file['matrix'])
+        rand_up_matrix = sp_sparse.vstack([rand_up_file['matrix']])
         iter_num, gene_num = rand_up_matrix.shape
         emp_pvalup = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pvalup[up_keep_genes_idx], axis=0) / iter_num
         

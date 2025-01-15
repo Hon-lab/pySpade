@@ -46,8 +46,22 @@ def global_analysis(FILE_DIR,
     duplicate_elements = unique_elements[counts > 1]
     #read the plotting annotation
     annot_df_dup = read_annot_df()
+    #Add the genes that are missing in the annot_df 
+    new_genes = list(set(gene_seq).difference(set(annot_df_dup['gene_names'])))
+    start_idx = annot_df["idx"].max() + 1
+    new_data = {
+    "idx": range(start_idx, start_idx + len(new_genes)),
+    "gene_names": new_genes,
+    "chromosome": ['NA'] * len(new_genes),  # Placeholder values
+    "pos": ['NA'] * len(new_genes),      # Placeholder values
+    "strand": ['+'] * len(new_genes),     # Placeholder values
+    "color_idx": ['0'] * len(new_genes), # Placeholder values
+    "chr_idx": ['24'] * len(new_genes),   # Placeholder values
+    }
+    new_df = pd.DataFrame(new_data)
+    result_df = pd.concat([annot_df_dup, new_df], ignore_index=True)
     #There are many non-coding genes duplication in the annot_df, only keep one.
-    annot_df = annot_df_dup.drop_duplicates(subset='gene_names', keep='first')
+    annot_df = result_df.drop_duplicates(subset='gene_names', keep='first')
 
     ##Load sgRNA dict: All regions 
     sgrna_dict  = read_sgrna_dict(SGRNA_DICT)
@@ -96,6 +110,10 @@ def global_analysis(FILE_DIR,
             pval_list_down = pval_list_down[:len(cpm_mean)]
             cpm = cpm[:len(cpm_mean)]
             fc_cpm = (cpm + 0.01)/(cpm_mean + 0.01) #modify back!!
+            
+            if cell_num < 20:
+                logger.info('Not enough cells (' + str(cell_num) + ') for analysis.')
+                continue
 
             #preprocess pval list 
             pval_list_up[np.argwhere(pval_list_up == 0)] = 1
@@ -112,14 +130,21 @@ def global_analysis(FILE_DIR,
             up_idx = np.array(list(set(up_i).intersection(set(np.where(pval_list_up < pval_cutoff)[0]))))
             down_i = np.where(np.array(fc_cpm) < (1 - fc_cutoff))[0]
             down_idx = np.array(list(set(down_i).intersection(set(np.where(pval_list_down < pval_cutoff)[0]))))
-
+            if (len(down_idx) == 0) & (len(up_idx) == 0):
+                logger.info(f'No DE genes within local analysis windown. ')
+                continue
             #Calculate the overlap genes with annot_df, and only save the information on those genes.
             unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
-            up_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))) #up-regulated genes found in both annotation file and transcriptome df
-            up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
-            down_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[down_idx])))
-            down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
-
+            if len(up_idx) != 0:
+                up_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[up_idx]))) #up-regulated genes found in both annotation file and transcriptome df
+                up_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, up_keep_genes))[0]]))
+            if len(down_idx) != 0:
+                down_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[down_idx])))
+                down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
+            if (len(down_keep_genes_idx) == 0) & (len(up_keep_genes_idx) == 0):
+                logger.info(f'No DE genes within local analysis windown. ')
+                continue
+            
             #Calculate p-value adj for gamma distribution
             down_padj_list = []
             num_process = get_num_processes()
@@ -150,20 +175,18 @@ def global_analysis(FILE_DIR,
 
             #Load background distribution and calculate emprical p-value
             rand_down_file = sio.loadmat(DISTRI_DIR + '%s-down_log-pval'%(str(b)))
-            #rand_down_file = sio.loadmat(DISTRI_DIR + 'A-down_log-pval-%s'%(str(b)))
             rand_down_matrix = []
-            rand_down_matrix = sp_sparse.vstack(rand_down_file['matrix'])
+            rand_down_matrix = sp_sparse.vstack([rand_down_file['matrix']])
             iter_num, gene_num = rand_down_matrix.shape
             emp_pval_down = np.sum(np.asarray(rand_down_matrix.tocsr()[:, down_keep_genes_idx].todense()) < pval_list_down[down_keep_genes_idx], axis=0) / iter_num
 
             rand_up_file = sio.loadmat(DISTRI_DIR + '%s-up_log-pval'%(str(b)))
-            #rand_up_file = sio.loadmat(DISTRI_DIR + 'A-up_log-pval-%s'%(str(b)))
             rand_up_matrix = []
-            rand_up_matrix = sp_sparse.vstack(rand_up_file['matrix'])
+            rand_up_matrix = sp_sparse.vstack([rand_up_file['matrix']])
             iter_num, gene_num = rand_up_matrix.shape
             emp_pval_up = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pval_list_up[up_keep_genes_idx], axis=0) / iter_num
 
-            #save to csv file: down-regulation gene 
+            #save to csv file: down-regulation gene
             global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num

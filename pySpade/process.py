@@ -87,7 +87,7 @@ def process_singlet(WORK_DIR,
 
 
         All_singlet_ID = HTO_df_adj_bool.columns[(HTO_df_adj_bool > 0).sum(axis=0).values == 1].values
-        new_columns = set(sgRNA_df.columns.values).intersection(set(All_singlet_ID))
+        new_columns = list(set(sgRNA_df.columns.values).intersection(set(All_singlet_ID)))
 
         new_sgRNA_df = sgRNA_df[new_columns]
         del sgRNA_df
@@ -116,8 +116,8 @@ def process_singlet(WORK_DIR,
 
         #write output matrix
         sub_df = pd.DataFrame(data=filtered_feature_bc_matrix.matrix.todense(), columns=filtered_feature_bc_matrix.barcodes.astype(str), index=filtered_feature_bc_matrix.feature_ref['name'].astype(str))
-        np.save(OUTPUT_DIR + 'Trans_genome_seq', sub_df.index)
-        np.save(OUTPUT_DIR + 'Perc_cell_expr', (np.sum(sub_df[no_outlier_sgrna_df.columns] > 0, axis=1) / len(no_outlier_sgrna_df.columns) *100).values)
+        np.save(OUTPUT_DIR + '/Trans_genome_seq', sub_df.index)
+        np.save(OUTPUT_DIR + '/Perc_cell_expr', (np.sum(sub_df[no_outlier_sgrna_df.columns] > 0, axis=1) / len(no_outlier_sgrna_df.columns) *100).values)
         
         if (COMP=='True'):
             no_outlier_sgrna_df.to_hdf(OUTPUT_DIR + '/Singlet_sgRNA_df.h5', key='df', mode='w', complevel=9, complib='zlib')    
@@ -142,7 +142,7 @@ def process_singlet(WORK_DIR,
         barcode_df = pd.read_csv(WORK_DIR + 'filtered_feature_bc_matrix/barcodes.tsv.gz', names=['bc'])
         barcode = list(barcode_df['bc'])
 
-        new_columns = set(sgRNA_df.columns).intersection(set(barcode))
+        new_columns = list(set(sgRNA_df.columns).intersection(set(barcode)))
         CorrSgrnaPerCell_out, sgrna_mean , sgrna_median = get_sgrna_per_cell(sgRNA_df[new_columns], return_mean=True, return_median=True)
         logger.info('Cell number: ' + str(len(new_columns)))
         logger.info('sgRNA mean: ' + str(sgrna_mean))
@@ -165,8 +165,8 @@ def process_singlet(WORK_DIR,
         del filtered_feature_bc_matrix
 
         #write output matrix
-        np.save(OUTPUT_DIR + 'Trans_genome_seq', sub_df.index)
-        np.save(OUTPUT_DIR + 'Perc_cell_expr', (np.sum(sub_df[new_columns] > 0, axis=1) / len(new_columns) *100).values)
+        np.save(OUTPUT_DIR + '/Trans_genome_seq', sub_df.index)
+        np.save(OUTPUT_DIR + '/Perc_cell_expr', (np.sum(sub_df[new_columns] > 0, axis=1) / len(new_columns) *100).values)
         
         if (COMP=='True'):
             sub_df[new_columns].to_hdf(OUTPUT_DIR + '/Singlet_sub_df.h5', key='df', mode='w', complevel=3, complib='zlib')

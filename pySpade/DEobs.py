@@ -33,7 +33,7 @@ def DE_observe_cells(sub_df_file,
                     norm='cpm',
                     background_cells='complement'
                     ):
-    
+    num_processing = get_num_processes()
     logger.info(str(num_processing) + ' cpu for parallel computing.')
 
     #check the normalization method   

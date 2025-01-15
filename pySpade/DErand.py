@@ -37,7 +37,8 @@ def DE_random_cells(sub_df_file,
                     num_processing=1,
                     norm='cpm',
                     background_cells='complement'):
-    
+
+    num_processing = get_num_processes()    
     logger.info(str(num_processing) + ' cpu for parallel computing.')
     
     #check the normalization method
@@ -261,9 +262,12 @@ def DE_random_cells(sub_df_file,
             logger.info('Finished ' + str(i) + ' genes.')
 
         up_array = -np.array(up_pval_matrix.tocsr()[:, i].todense()).flatten()    
-        if np.sum(np.isfinite(up_array)) <= 10:
+        if np.sum(np.isfinite(up_array)) <= 50:
             continue
-        a, b, c = stats.gamma.fit(up_array[np.isfinite(up_array)])
+        if np.all(up_array[np.isfinite(up_array)] == up_array[np.isfinite(up_array)][0]):
+            a, b, c = (np.nan, 0.0, 1.0)
+        else: 
+            a, b, c = stats.gamma.fit(up_array[np.isfinite(up_array)])
         A[i] = a 
         B[i] = b
         C[i] = c
@@ -274,9 +278,12 @@ def DE_random_cells(sub_df_file,
             logger.info('Finished ' + str(i) + ' genes.')
 
         down_array = -np.array(down_pval_matrix.tocsr()[:, i].todense()).flatten()
-        if np.sum(np.isfinite(down_array)) <= 10:
+        if np.sum(np.isfinite(down_array)) <= 50:
             continue
-        d, e, f = stats.gamma.fit(down_array[np.isfinite(down_array)])
+        if np.all(down_array[np.isfinite(down_array)] == down_array[np.isfinite(down_array)][0]):
+            d, e, f = (np.nan, 0.0, 1.0)
+        else: 
+            d, e, f = stats.gamma.fit(down_array[np.isfinite(down_array)])
         D[i] = d
         E[i] = e
         F[i] = f
