@@ -294,6 +294,9 @@ optional arguments:
   * The genes upper part in red are up-regulated genes upon perturbation, while the genes in the lower part in blue are down-regulated genes upon perturbation.
   * The DE genes showing in the Manhattan plots are filtered based on the parameters running `manhattan`.
 
+## How to cite 
+Wang, Y. et al. Enhancer regulatory networks globally connect non-coding breast cancer loci to cancer genes. Genome Biol 26, 10 (2025).
+[Link to paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03474-0)
 
 ## Contacts
 _______
