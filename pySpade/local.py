@@ -176,8 +176,11 @@ def local_analysis(FILE_DIR,
         iter_num, gene_num = rand_up_matrix.shape
         emp_pvalup = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pvalup[up_keep_genes_idx], axis=0) / iter_num
         
-        #Save to csv file 
-        local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
+        #Save to csv file
+        filtered_df = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])]
+        filtered_df['gene_names'] = pd.Categorical(filtered_df['gene_names'], categories=gene_seq[down_keep_genes_idx], ordered=True)
+        local_gene_series = filtered_df.sort_values('gene_names') 
+        #local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index() 
         local_gene_series['region'] = region
         dist_list = []
         for i in local_gene_series['pos']:
@@ -197,7 +200,10 @@ def local_analysis(FILE_DIR,
         local_gene_df = pd.concat([local_gene_df, local_gene_series], ignore_index=True)
         local_gene_df = local_gene_df.reindex(columns=df_column_list)
         
-        local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
+        filtered_df = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])]
+        filtered_df['gene_names'] = pd.Categorical(filtered_df['gene_names'], categories=gene_seq[up_keep_genes_idx], ordered=True)
+        local_gene_series = filtered_df.sort_values('gene_names') 
+        #local_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
         local_gene_series['region'] = region
         dist_list = []
         for i in local_gene_series['pos']:

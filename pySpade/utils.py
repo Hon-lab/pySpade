@@ -121,7 +121,6 @@ def read_sgrna_dict(SGRNA_FILE):
 
 def read_annot_df() -> pd.DataFrame:
     with resources.path('pySpade', 'plot_annotation.txt') as df:
-#    with resources.path('pySpade', 'plot_annotation_RE.txt') as df:
         annot_df = pd.read_csv(df,
                    header=None,
                    sep='\t',

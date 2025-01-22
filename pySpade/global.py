@@ -48,7 +48,7 @@ def global_analysis(FILE_DIR,
     annot_df_dup = read_annot_df()
     #Add the genes that are missing in the annot_df 
     new_genes = list(set(gene_seq).difference(set(annot_df_dup['gene_names'])))
-    start_idx = annot_df["idx"].max() + 1
+    start_idx = annot_df_dup["idx"].max() + 1
     new_data = {
     "idx": range(start_idx, start_idx + len(new_genes)),
     "gene_names": new_genes,
@@ -131,7 +131,7 @@ def global_analysis(FILE_DIR,
             down_i = np.where(np.array(fc_cpm) < (1 - fc_cutoff))[0]
             down_idx = np.array(list(set(down_i).intersection(set(np.where(pval_list_down < pval_cutoff)[0]))))
             if (len(down_idx) == 0) & (len(up_idx) == 0):
-                logger.info(f'No DE genes within local analysis windown. ')
+                logger.info(f'No DE genes within analysis windown. ')
                 continue
             #Calculate the overlap genes with annot_df, and only save the information on those genes.
             unique_elements, unique_indices = np.unique(gene_seq, return_index=True)
@@ -142,7 +142,7 @@ def global_analysis(FILE_DIR,
                 down_keep_genes = list(set(annot_df['gene_names']).intersection(set(gene_seq[down_idx])))
                 down_keep_genes_idx = sorted(list(unique_indices[np.where(np.isin(unique_elements, down_keep_genes))[0]]))
             if (len(down_keep_genes_idx) == 0) & (len(up_keep_genes_idx) == 0):
-                logger.info(f'No DE genes within local analysis windown. ')
+                logger.info(f'No DE genes within analysis windown. ')
                 continue
             
             #Calculate p-value adj for gamma distribution
@@ -187,7 +187,10 @@ def global_analysis(FILE_DIR,
             emp_pval_up = np.sum(np.asarray(rand_up_matrix.tocsr()[:, up_keep_genes_idx].todense()) < pval_list_up[up_keep_genes_idx], axis=0) / iter_num
 
             #save to csv file: down-regulation gene
-            global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
+            filtered_df = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])]
+            filtered_df['gene_names'] = pd.Categorical(filtered_df['gene_names'], categories=gene_seq[down_keep_genes_idx], ordered=True)
+            global_gene_series = filtered_df.sort_values('gene_names')
+            #global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[down_keep_genes_idx])].set_index('idx').sort_index()
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
@@ -203,7 +206,10 @@ def global_analysis(FILE_DIR,
             global_hits_df = pd.concat([global_hits_df, global_gene_series], ignore_index=True)
 
             #save to csv file: up-regulation gene 
-            global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
+            filtered_df = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])]
+            filtered_df['gene_names'] = pd.Categorical(filtered_df['gene_names'], categories=gene_seq[up_keep_genes_idx], ordered=True)
+            global_gene_series = filtered_df.sort_values('gene_names')
+            #global_gene_series = annot_df[annot_df['gene_names'].isin(gene_seq[up_keep_genes_idx])].set_index('idx').sort_index()
             global_gene_series['region'] = region
             global_gene_series['num_cell'] = cell_num
             global_gene_series['bin'] = b
