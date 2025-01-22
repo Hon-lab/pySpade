@@ -29,7 +29,7 @@ $pySpade
 usage: pySpade [-h]  ...
 
 pySpade 
-Version: 0.1.5
+Version: 0.1.6
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -295,10 +295,11 @@ optional arguments:
   * The DE genes showing in the Manhattan plots are filtered based on the parameters running `manhattan`.
 
 ## How to cite 
+________
 Wang, Y. et al. Enhancer regulatory networks globally connect non-coding breast cancer loci to cancer genes. Genome Biol 26, 10 (2025).
 [Link to paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-025-03474-0)
 
 ## Contacts
-_______
+________
 * Yihan Wang `Yihan.Wang@UTSouthwestern.edu`
 * Gary Hon `Gary.Hon@UTSouthwestern.edu`
