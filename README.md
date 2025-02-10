@@ -1,4 +1,4 @@
-![pypi](https://pypi.org/project/pySpade/)
+[![PyPI Version](https://img.shields.io/pypi/v/pySpade.svg)](https://pypi.org/project/pySpade/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14532303.svg)](https://doi.org/10.5281/zenodo.14532303)
 
 ![plot](./MISC/pySpadeLogo.png)
