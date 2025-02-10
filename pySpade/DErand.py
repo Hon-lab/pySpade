@@ -46,7 +46,7 @@ def DE_random_cells(sub_df_file,
         logger.critical("Incorrect normalization method. Has to be either 'cpm' or 'metacell'")
         sys.exit(0)
 
-    #check the normalization method
+    #check the randomized method
     if (RAND_M != 'equal') and (RAND_M != 'sgrna'):
         logger.critical("Incorrect randomization method. Has to be either 'equal' or 'sgrna'")
         sys.exit(0)
@@ -88,7 +88,8 @@ def DE_random_cells(sub_df_file,
     del sub_df
     if (RAND_M == 'sgrna'):
         total_choose_num = np.sum(np.sum(sgrna_df_adj_bool))     
-        sgrna_weight_list = list(np.sum(sgrna_df_adj_bool, axis=0).values / total_choose_num)
+        sgrna_weight_list_un = np.array(list(np.sum(sgrna_df_adj_bool, axis=0).values / total_choose_num))
+        sgrna_weight_list = sgrna_weight_list_un / np.sum(sgrna_weight_list_un)
 
     logger.info('Finished processing sgRNA df.')
 
@@ -115,7 +116,7 @@ def DE_random_cells(sub_df_file,
         
         del sgrna_df_adj_bool
         if len(NC_idx) == 0:
-            logger.critical('No cell as background. Job cancels.')
+            logger.critical('No cell as background. Please consider other background set. Job cancels.')
             sys.exit(0)
         logger.info(str(len(NC_idx)) + ' cells as background for differential expression analysis.')
 
@@ -125,7 +126,9 @@ def DE_random_cells(sub_df_file,
             if (counter % 25 == 0):
                 logger.info('Finished ' + str(counter) + ' iterations.')
             if (RAND_M == 'sgrna'):
-                sgrna_idx = np.random.choice(np.setxor1d(np.arange(c), NC_idx), size=num_cell, replace=False, p=[sgrna_weight_list[i] for i in np.setxor1d(np.arange(c), NC_idx)]) #number (select from idx)
+                filter_weight_list = sgrna_weight_list[list(np.setxor1d(np.arange(c), NC_idx))]
+                filter_weight_list /= filter_weight_list.sum()
+                sgrna_idx = np.random.choice(np.setxor1d(np.arange(c), NC_idx), size=num_cell, replace=False, p=filter_weight_list) #number (select from idx)
             elif (RAND_M == 'equal'):
                 sgrna_idx = np.random.choice(np.setxor1d(np.arange(c), NC_idx), size=num_cell, replace=False)
                     
