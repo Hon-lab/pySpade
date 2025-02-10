@@ -1,3 +1,6 @@
+![pypi](https://pypi.org/project/pySpade/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14532303.svg)](https://doi.org/10.5281/zenodo.14532303)
+
 ![plot](./MISC/pySpadeLogo.png)
 # pySpade: Single cell Perturbations - Analysis of Differential gene Expression
 
